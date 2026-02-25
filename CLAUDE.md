@@ -46,20 +46,21 @@ packages/
 
 ## Tech Stack
 
-| Concern | Technology |
-|---|---|
-| Web framework | Next.js (apps/web) |
-| Language | TypeScript 5 (strict, ES2022) |
-| UI | React 19 |
-| Database | Supabase |
-| Auth | Google OAuth |
-| Queue/Cache | Redis (Upstash) |
-| AI | OpenAI |
-| Monitoring | Sentry + Axiom |
+| Concern       | Technology                    |
+| ------------- | ----------------------------- |
+| Web framework | Next.js (apps/web)            |
+| Language      | TypeScript 5 (strict, ES2022) |
+| UI            | React 19                      |
+| Database      | Supabase                      |
+| Auth          | Google OAuth                  |
+| Queue/Cache   | Redis (Upstash)               |
+| AI            | OpenAI                        |
+| Monitoring    | Sentry + Axiom                |
 
 ## Environment Variables
 
 See `.env.example` at the repo root. Required variables include:
+
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
 - `OPENAI_API_KEY`
