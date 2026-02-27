@@ -35,10 +35,6 @@ importers:
       '@jobric/shared':
         specifier: workspace:^
         version: link:../../packages/shared
-    dependencies:
-      '@jobric/shared':
-        specifier: workspace:^
-        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
