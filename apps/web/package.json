@@ -6,5 +6,9 @@
   "scripts": {},
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@t3-oss/env-nextjs": "^0.13.10",
+    "zod": "^4.3.6"
+  }
 }
