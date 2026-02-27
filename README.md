@@ -1,135 +1,122 @@
-# Turborepo starter
+# Jobric
 
-This Turborepo starter is maintained by the Turborepo core team.
+A pnpm + Turborepo monorepo containing the Jobric API and web application.
 
-## Using this example
+## Prerequisites
 
-Run the following command:
+- **Node.js** >= 18
+- **pnpm** 9.x — install via `npm install -g pnpm@9`
 
-```sh
-npx create-turbo@latest
-```
-
-## What's inside?
-
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
+## Project Structure
 
 ```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+apps/
+  api/       # Backend API server (Node.js + TypeScript) — deployed on Railway
+  web/       # Web frontend (Next.js)
+  mobile/    # Mobile app
+packages/
+  ui/        # Shared React component library
+  db/        # Database layer (Supabase)
+  queue/     # Job queue (Redis/Upstash)
+  shared/    # Shared utilities and types
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Getting Started
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo build --filter=docs
+### 1. Install dependencies
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+pnpm install
 ```
 
-### Develop
+### 2. Set up environment variables
 
-To develop all apps and packages, run the following command:
+Copy the example env file and fill in the required values:
 
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+```bash
+cp .env.example .env
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Required variables:
 
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo dev --filter=web
+| Variable               | Description                     |
+| ---------------------- | ------------------------------- |
+| `SUPABASE_URL`         | Your Supabase project URL       |
+| `SUPABASE_ANON_KEY`    | Supabase anonymous key          |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key       |
+| `GOOGLE_CLIENT_ID`     | Google OAuth client ID          |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret      |
+| `GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI       |
+| `OPENAI_API_KEY`       | OpenAI API key                  |
+| `REDIS_URL`            | Redis connection URL (Upstash)  |
+| `JWT_SECRET`           | Secret used to sign JWTs        |
+| `PORT`                 | API port (default: `3001`)      |
+| `SENTRY_DSN`           | Sentry DSN for error monitoring |
+| `AXIOM_TOKEN`          | Axiom token for logging         |
+| `AXIOM_DATASET`        | Axiom dataset name              |
 
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+### 3. Run in development
 
-### Remote Caching
+Start all apps concurrently:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-```
-cd my-turborepo
-
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo login
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
+```bash
+pnpm dev
 ```
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+Or start a specific app:
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-```
-# With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended)
-turbo link
-
-# Without [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation), use your package manager
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
+```bash
+pnpm turbo dev --filter=api
+pnpm turbo dev --filter=web
 ```
 
-## Useful Links
+## Common Commands
 
-Learn more about the power of Turborepo:
+```bash
+pnpm build          # Build all apps and packages
+pnpm dev            # Start all dev servers
+pnpm lint           # Lint all workspaces
+pnpm format         # Format with Prettier
+pnpm check-types    # Type-check all workspaces
+```
 
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+To run a command scoped to one app or package:
+
+```bash
+pnpm turbo build --filter=api
+pnpm turbo build --filter=web
+pnpm turbo lint --filter=@repo/ui
+```
+
+## Deployment
+
+### API — Railway
+
+The `apps/api` service is deployed on Railway. The build and start commands are defined in `railway.json` at the repo root.
+
+**Build command:**
+
+```bash
+pnpm install --frozen-lockfile && pnpm --filter @jobric/api build
+```
+
+**Start command:**
+
+```bash
+pnpm --filter @jobric/api start
+```
+
+Set all required environment variables listed above in the Railway service dashboard before deploying.
+
+## Tech Stack
+
+| Concern       | Technology            |
+| ------------- | --------------------- |
+| Web framework | Next.js               |
+| Language      | TypeScript 5 (strict) |
+| UI            | React 19              |
+| Database      | Supabase              |
+| Auth          | Google OAuth          |
+| Queue / Cache | Redis (Upstash)       |
+| AI            | OpenAI                |
+| Monitoring    | Sentry + Axiom        |
