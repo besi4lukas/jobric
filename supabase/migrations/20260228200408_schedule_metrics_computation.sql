@@ -77,6 +77,3 @@ SELECT cron.schedule(
   '*/15 * * * *',
   $$ SELECT refresh_user_metrics(id) FROM public.users $$
 );
-
-GRANT EXECUTE ON FUNCTION refresh_user_metrics(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION refresh_user_metrics(UUID) TO service_role;
