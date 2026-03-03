@@ -13,6 +13,8 @@
     "typescript": "5.9.2"
   },
   "dependencies": {
-    "@jobric/shared": "workspace:^"
+    "@jobric/db": "workspace:^",
+    "@jobric/shared": "workspace:^",
+    "fastify": "^5.7.4"
   }
 }
