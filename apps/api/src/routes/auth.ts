@@ -25,6 +25,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: SignUpBody }>,
       reply: FastifyReply,
     ) => {
+      if (!request.body || typeof request.body !== 'object') {
+        return reply.status(400).send({ message: 'Request body is required' })
+      }
+
       const { email, password, fullName } = request.body
 
       if (!email || !password) {
@@ -59,6 +63,10 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       request: FastifyRequest<{ Body: SignInBody }>,
       reply: FastifyReply,
     ) => {
+      if (!request.body || typeof request.body !== 'object') {
+        return reply.status(400).send({ message: 'Request body is required' })
+      }
+
       const { email, password } = request.body
 
       if (!email || !password) {
