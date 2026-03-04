@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { supabase } from '@jobric/db'
+import { supabase, supabaseAdmin } from '@jobric/db'
 
 interface SignUpBody {
   email: string
@@ -10,6 +10,12 @@ interface SignUpBody {
 interface SignInBody {
   email: string
   password: string
+}
+
+function extractBearerToken(request: FastifyRequest): string | null {
+  const header = request.headers.authorization
+  if (!header?.startsWith('Bearer ')) return null
+  return header.slice(7)
 }
 
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
@@ -79,8 +85,25 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
   fastify.post(
     '/signout',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      const { error } = await supabase.auth.signOut()
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const token = extractBearerToken(request)
+
+      if (!token) {
+        return reply
+          .status(401)
+          .send({ message: 'Missing authorization token' })
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser(token)
+
+      if (userError || !user) {
+        return reply.status(401).send({ message: 'Invalid or expired token' })
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.signOut(token)
 
       if (error) {
         return reply.status(500).send({ message: error.message })
@@ -91,13 +114,12 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   )
 
   fastify.get('/me', async (request: FastifyRequest, reply: FastifyReply) => {
-    const authHeader = request.headers.authorization
+    const token = extractBearerToken(request)
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!token) {
       return reply.status(401).send({ message: 'Missing authorization token' })
     }
 
-    const token = authHeader.slice(7)
     const { data, error } = await supabase.auth.getUser(token)
 
     if (error) {

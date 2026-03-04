@@ -1,24 +1,29 @@
-import { describe, it, expect, afterAll } from 'vitest'
-import { createClient } from '@supabase/supabase-js'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../database.types'
 
-const supabaseUrl = process.env.SUPABASE_URL!
-const serviceKey = process.env.SUPABASE_SERVICE_KEY!
+const canRun = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY)
 
-const admin = createClient<Database>(supabaseUrl, serviceKey)
+let admin: SupabaseClient<Database>
+let createdUserId: string | null = null
 
 const TEST_EMAIL = `test-${Date.now()}@jobric-test.com`
 const TEST_PASSWORD = 'Test1234!Secure'
 
-let createdUserId: string | null = null
+describe.skipIf(!canRun)('handle_new_user trigger', () => {
+  beforeAll(() => {
+    admin = createClient<Database>(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_KEY!,
+    )
+  })
 
-afterAll(async () => {
-  if (createdUserId) {
-    await admin.auth.admin.deleteUser(createdUserId)
-  }
-})
+  afterAll(async () => {
+    if (createdUserId) {
+      await admin.auth.admin.deleteUser(createdUserId)
+    }
+  })
 
-describe('handle_new_user trigger', () => {
   it('creates a public.users row when a new auth user signs up', async () => {
     const { data: authData, error: authError } =
       await admin.auth.admin.createUser({
