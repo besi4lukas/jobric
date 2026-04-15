@@ -1,0 +1,49 @@
+name = "jobric-agents"
+main = "src/index.ts"
+compatibility_date = "2025-04-14"
+compatibility_flags = ["nodejs_compat"]
+
+# ─── Durable Objects (one per agent) ───────────────────────────────────────────
+[[durable_objects.bindings]]
+name = "OrchestratorAgent"
+class_name = "OrchestratorAgent"
+
+[[durable_objects.bindings]]
+name = "EmailWatcherAgent"
+class_name = "EmailWatcherAgent"
+
+[[durable_objects.bindings]]
+name = "ParserAgent"
+class_name = "ParserAgent"
+
+[[durable_objects.bindings]]
+name = "StatusTrackerAgent"
+class_name = "StatusTrackerAgent"
+
+# ─── Durable Object Migrations ─────────────────────────────────────────────────
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = [
+  "OrchestratorAgent",
+  "EmailWatcherAgent",
+  "ParserAgent",
+  "StatusTrackerAgent"
+]
+
+# ─── D1 Database ───────────────────────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "jobric-db"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+
+# ─── Vars (non-secret) ────────────────────────────────────────────────────────
+[vars]
+CLERK_PUBLISHABLE_KEY = "pk_test_REPLACE_WITH_YOUR_KEY"
+
+# ─── Secrets (set via `wrangler secret put`) ──────────────────────────────────
+# ANTHROPIC_API_KEY     — Anthropic API key for Claude LLM calls
+# CLERK_SECRET_KEY      — Clerk secret key for JWT validation
+
+# ─── Email Routing ──────────────────────────────────────────────────────────────
+[[email]]
+name = "EMAIL"
