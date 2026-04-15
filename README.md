@@ -1,6 +1,6 @@
 # Jobric
 
-A pnpm + Turborepo monorepo containing the Jobric API and web application.
+A pnpm + Turborepo monorepo containing the Jobric agents and web application.
 
 ## Prerequisites
 
@@ -11,13 +11,11 @@ A pnpm + Turborepo monorepo containing the Jobric API and web application.
 
 ```
 apps/
-  api/       # Backend API server (Node.js + TypeScript) — deployed on Railway
+  agents/    # Cloudflare Workers + Durable Object agents
   web/       # Web frontend (Next.js)
   mobile/    # Mobile app
 packages/
   ui/        # Shared React component library
-  db/        # Database layer (Supabase)
-  queue/     # Job queue (Redis/Upstash)
   shared/    # Shared utilities and types
 ```
 
@@ -39,21 +37,16 @@ cp .env.example .env
 
 Required variables:
 
-| Variable               | Description                     |
-| ---------------------- | ------------------------------- |
-| `SUPABASE_URL`         | Your Supabase project URL       |
-| `SUPABASE_ANON_KEY`    | Supabase anonymous key          |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key       |
-| `GOOGLE_CLIENT_ID`     | Google OAuth client ID          |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret      |
-| `GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI       |
-| `OPENAI_API_KEY`       | OpenAI API key                  |
-| `REDIS_URL`            | Redis connection URL (Upstash)  |
-| `JWT_SECRET`           | Secret used to sign JWTs        |
-| `PORT`                 | API port (default: `3001`)      |
-| `SENTRY_DSN`           | Sentry DSN for error monitoring |
-| `AXIOM_TOKEN`          | Axiom token for logging         |
-| `AXIOM_DATASET`        | Axiom dataset name              |
+| Variable                            | Description                     |
+| ----------------------------------- | ------------------------------- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key           |
+| `CLERK_SECRET_KEY`                  | Clerk secret key                |
+| `GOOGLE_CLIENT_ID`                  | Google OAuth client ID          |
+| `GOOGLE_CLIENT_SECRET`              | Google OAuth client secret      |
+| `NEXT_PUBLIC_AGENTS_URL`            | Cloudflare Workers agents URL   |
+| `SENTRY_DSN`                        | Sentry DSN for error monitoring |
+| `AXIOM_TOKEN`                       | Axiom token for logging         |
+| `AXIOM_DATASET`                     | Axiom dataset name              |
 
 ### 3. Run in development
 
@@ -66,7 +59,7 @@ pnpm dev
 Or start a specific app:
 
 ```bash
-pnpm turbo dev --filter=api
+pnpm turbo dev --filter=agents
 pnpm turbo dev --filter=web
 ```
 
@@ -83,40 +76,36 @@ pnpm check-types    # Type-check all workspaces
 To run a command scoped to one app or package:
 
 ```bash
-pnpm turbo build --filter=api
+pnpm turbo build --filter=agents
 pnpm turbo build --filter=web
 pnpm turbo lint --filter=@repo/ui
 ```
 
 ## Deployment
 
-### API — Railway
+### Agents — Cloudflare Workers
 
-The `apps/api` service is deployed on Railway. The build and start commands are defined in `railway.json` at the repo root.
-
-**Build command:**
+The `apps/agents` service is deployed to Cloudflare Workers. Deploy with:
 
 ```bash
-pnpm install --frozen-lockfile && pnpm --filter @jobric/api build
+pnpm turbo deploy --filter=agents
 ```
 
-**Start command:**
+Set secrets via wrangler before deploying:
 
 ```bash
-pnpm --filter @jobric/api start
+wrangler secret put ANTHROPIC_API_KEY --config apps/agents/wrangler.toml
+wrangler secret put CLERK_SECRET_KEY --config apps/agents/wrangler.toml
 ```
-
-Set all required environment variables listed above in the Railway service dashboard before deploying.
 
 ## Tech Stack
 
-| Concern       | Technology            |
-| ------------- | --------------------- |
-| Web framework | Next.js               |
-| Language      | TypeScript 5 (strict) |
-| UI            | React 19              |
-| Database      | Supabase              |
-| Auth          | Google OAuth          |
-| Queue / Cache | Redis (Upstash)       |
-| AI            | OpenAI                |
-| Monitoring    | Sentry + Axiom        |
+| Concern       | Technology                              |
+| ------------- | --------------------------------------- |
+| Web framework | Next.js                                 |
+| Language      | TypeScript 5 (strict)                   |
+| UI            | React 19                                |
+| Database      | Cloudflare D1 (SQLite)                  |
+| Auth          | Clerk                                   |
+| AI            | Vercel AI SDK + Anthropic Claude Sonnet |
+| Monitoring    | Sentry + Axiom                          |

@@ -9,8 +9,7 @@
     "check-types": "turbo run check-types",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
-    "prepare": "husky",
-    "gen:types": "supabase gen types typescript --project-id tmrqrqddigfusmggxylx > packages/db/database.types.ts"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

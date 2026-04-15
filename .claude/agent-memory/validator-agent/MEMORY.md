@@ -1,0 +1,1 @@
+- [Supabase→Clerk+D1 migration findings](project_migration_findings.md) — stale lockfile patterns, @clerk/backend not installed, missing callAgent type param, stale dist artifacts
