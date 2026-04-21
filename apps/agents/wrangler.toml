@@ -31,6 +31,7 @@ new_sqlite_classes = [
 ]
 
 # ─── D1 Database ───────────────────────────────────────────────────────────────
+# Run: wrangler d1 create jobric-db, then paste the database_id here
 [[d1_databases]]
 binding = "DB"
 database_name = "jobric-db"
@@ -38,7 +39,8 @@ database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
 
 # ─── Vars (non-secret) ────────────────────────────────────────────────────────
 [vars]
-CLERK_PUBLISHABLE_KEY = "pk_test_REPLACE_WITH_YOUR_KEY"
+CLERK_PUBLISHABLE_KEY = "" # set via: wrangler secret put CLERK_PUBLISHABLE_KEY
+CLERK_SECRET_KEY = "" # set via: wrangler secret put CLERK_SECRET_KEY
 
 # ─── Secrets (set via `wrangler secret put`) ──────────────────────────────────
 # ANTHROPIC_API_KEY     — Anthropic API key for Claude LLM calls

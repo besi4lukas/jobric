@@ -28,52 +28,32 @@ export default {
 
     // ── JWT Validation (Clerk) ──────────────────────────────────────────────
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response('Missing or malformed Authorization header', {
-        status: 401,
-      })
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
+    if (!token) {
+      return new Response('Unauthorized', { status: 401 })
     }
 
-    const token = authHeader.slice(7)
+    let userId: string
     try {
       const payload = await verifyToken(token, {
         secretKey: env.CLERK_SECRET_KEY,
       })
-
-      // payload.sub is the Clerk userId
-      if (!payload.sub) {
-        return new Response('Invalid token', { status: 401 })
+      if (!payload?.sub) {
+        return new Response('Unauthorized', { status: 401 })
       }
-
-      // Attach userId to the request headers so agents can access it
-      const headers = new Headers(req.headers)
-      headers.set('X-User-Id', payload.sub)
-      const authedReq = new Request(req.url, {
-        method: req.method,
-        headers,
-        body: req.body,
-      })
-
-      // ── API Routes ──────────────────────────────────────────────────────
-      const url = new URL(req.url)
-      if (url.pathname === '/api/applications' && req.method === 'GET') {
-        const { results } = await env.DB.prepare(
-          'SELECT * FROM applications WHERE user_id = ? ORDER BY processed_at DESC',
-        )
-          .bind(payload.sub)
-          .all()
-        return Response.json(results)
-      }
-
-      // Route to the correct agent based on URL
-      const agentResponse = await routeAgentRequest(authedReq, env)
-      if (agentResponse) return agentResponse
-
-      // Fallback for unmatched routes
-      return new Response('Jobric Agents — route not found', { status: 404 })
+      userId = payload.sub
     } catch {
-      return new Response('Invalid or expired token', { status: 401 })
+      return new Response('Unauthorized', { status: 401 })
     }
+
+    // Route to the correct agent, forwarding the verified userId as props
+    const agentResponse = await routeAgentRequest(req, env, {
+      props: { userId },
+    })
+    if (agentResponse) return agentResponse
+
+    // Fallback for unmatched routes
+    return new Response('Jobric Agents — route not found', { status: 404 })
   },
 
   // Handle incoming emails via Cloudflare Email Workers

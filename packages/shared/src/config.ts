@@ -23,7 +23,7 @@ export function loadConfig(): Env {
     })
 
     console.error(
-      `\n❌ Invalid or missing environment variables:\n${missing.join('\n')}\n`,
+      `\n Invalid or missing environment variables:\n${missing.join('\n')}\n`,
     )
     throw new Error('Invalid environment variables')
   }
