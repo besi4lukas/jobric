@@ -1,7 +1,12 @@
 import { Agent } from 'agents'
 import { generateObject } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
-import { ParsedApplicationSchema, type Env } from '../types'
+import {
+  EmailEnvelopeSchema,
+  ParsedApplicationSchema,
+  assertUserId,
+  type Env,
+} from '../types'
 
 // ─── ParserAgent ───────────────────────────────────────────────────────────────
 // Responsibility: Take a raw email and extract structured job application data.
@@ -11,11 +16,9 @@ import { ParsedApplicationSchema, type Env } from '../types'
 // ──────────────────────────────────────────────────────────────────────────────
 export class ParserAgent extends Agent<Env> {
   async onRequest(req: Request): Promise<Response> {
-    const { from, subject, body } = await req.json<{
-      from: string
-      subject: string
-      body?: string
-    }>()
+    const envelope = EmailEnvelopeSchema.parse(await req.json())
+    assertUserId(envelope.userId)
+    const { from, subject, body } = envelope
 
     // ── LLM Call via Vercel AI SDK ──────────────────────────────────────────
     // generateObject forces Claude to respond in the exact shape of our Zod schema.

@@ -1,6 +1,6 @@
 import { routeAgentRequest } from 'agents'
 import { verifyToken } from '@clerk/backend'
-import type { Env } from './types'
+import type { Env, EmailEnvelope } from './types'
 import type {
   ExportedHandler,
   ForwardableEmailMessage,
@@ -59,18 +59,36 @@ export default {
   // Handle incoming emails via Cloudflare Email Workers
   // Cloudflare delivers emails directly to this handler — no JWT needed
   async email(message: ForwardableEmailMessage, env: Env): Promise<void> {
+    // Resolve userId from the destination address via D1.
+    // Fail loud if unresolved — previously missing userId silently skipped D1 writes.
+    const row = await env.DB.prepare(
+      `SELECT user_id FROM email_accounts WHERE email = ? LIMIT 1`,
+    )
+      .bind(message.to)
+      .first<{ user_id: string }>()
+
+    const userId = row?.user_id
+    if (!userId) {
+      throw new Error(
+        `email ingress: no email_accounts row for to=${message.to}`,
+      )
+    }
+
     const id = env.EmailWatcherAgent.idFromName('watcher')
     const stub = env.EmailWatcherAgent.get(id)
+
+    const envelope: EmailEnvelope = {
+      userId,
+      from: message.from,
+      to: message.to,
+      subject: message.headers.get('subject') ?? '',
+      rawSize: message.rawSize,
+    }
 
     // Forward the email to the EmailWatcherAgent Durable Object
     await stub.fetch('https://internal/email', {
       method: 'POST',
-      body: JSON.stringify({
-        from: message.from,
-        to: message.to,
-        subject: message.headers.get('subject') ?? '',
-        rawSize: message.rawSize,
-      }),
+      body: JSON.stringify(envelope),
     })
   },
 } satisfies ExportedHandler<Env>

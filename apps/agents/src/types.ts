@@ -37,6 +37,34 @@ export const StatusChangeSchema = z.object({
 
 export type StatusChange = z.infer<typeof StatusChangeSchema>
 
+// ─── Inter-agent message envelopes ─────────────────────────────────────────────
+// Every inter-agent message carries userId. Receivers fail loud on missing —
+// silent skipping is how D1 writes got dropped on the email path.
+
+export const EmailEnvelopeSchema = z.object({
+  userId: z.string().min(1),
+  from: z.string(),
+  to: z.string(),
+  subject: z.string(),
+  body: z.string().optional(),
+  rawSize: z.number().optional(),
+})
+
+export type EmailEnvelope = z.infer<typeof EmailEnvelopeSchema>
+
+export const TrackEnvelopeSchema = z.object({
+  userId: z.string().min(1),
+  parsed: ParsedApplicationSchema,
+})
+
+export type TrackEnvelope = z.infer<typeof TrackEnvelopeSchema>
+
+export function assertUserId(value: unknown): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error('envelope missing required userId')
+  }
+}
+
 // ─── Env bindings (matches wrangler.toml) ─────────────────────────────────────
 export interface Env {
   OrchestratorAgent: DurableObjectNamespace

@@ -1,5 +1,13 @@
 import { Agent } from 'agents'
-import type { Env, ParsedApplication, StatusChange } from '../types'
+import {
+  EmailEnvelopeSchema,
+  assertUserId,
+  type Env,
+  type EmailEnvelope,
+  type ParsedApplication,
+  type StatusChange,
+  type TrackEnvelope,
+} from '../types'
 
 // ─── OrchestratorAgent ─────────────────────────────────────────────────────────
 // Responsibility: Coordinate the full pipeline.
@@ -29,14 +37,9 @@ export class OrchestratorAgent extends Agent<Env> {
 
   // ── Main Pipeline ────────────────────────────────────────────────────────────
   private async processEmail(req: Request): Promise<Response> {
-    const email = await req.json<{
-      from: string
-      subject: string
-      body?: string
-    }>()
-
-    // Extract userId from X-User-Id header (set by the Worker entry point)
-    const userId = req.headers.get('X-User-Id')
+    const envelope = EmailEnvelopeSchema.parse(await req.json())
+    assertUserId(envelope.userId)
+    const { userId } = envelope
 
     try {
       // ── Step 1: Parse the email ────────────────────────────────────────────
@@ -44,7 +47,7 @@ export class OrchestratorAgent extends Agent<Env> {
         this.env.ParserAgent,
         'parser',
         '/parse',
-        email,
+        envelope satisfies EmailEnvelope,
       )
 
       // Skip low-confidence parses to avoid noise
@@ -58,7 +61,7 @@ export class OrchestratorAgent extends Agent<Env> {
         this.env.StatusTrackerAgent,
         'tracker',
         '/track',
-        parsed,
+        { userId, parsed } satisfies TrackEnvelope,
       )
 
       // ── Step 3: Sync state to frontend (WebSocket clients) ─────────────────
@@ -87,12 +90,12 @@ export class OrchestratorAgent extends Agent<Env> {
       `
 
       // ── Step 5: Write to D1 for the frontend dashboard ────────────────────
-      if (userId) {
-        const now = new Date().toISOString()
-        const applicationId = crypto.randomUUID()
+      // userId is guaranteed by the assertion above.
+      const now = new Date().toISOString()
+      const applicationId = crypto.randomUUID()
 
-        await this.env.DB.prepare(
-          `
+      await this.env.DB.prepare(
+        `
           INSERT INTO applications (id, user_id, company, role, status, confidence, next_steps, interview_date, status_changed, processed_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT (user_id, company, role) DO UPDATE SET
@@ -103,41 +106,40 @@ export class OrchestratorAgent extends Agent<Env> {
             status_changed = excluded.status_changed,
             updated_at = excluded.updated_at
         `,
+      )
+        .bind(
+          applicationId,
+          userId,
+          parsed.company,
+          parsed.role,
+          parsed.status,
+          parsed.confidence,
+          parsed.nextSteps ?? null,
+          parsed.interviewDate ?? null,
+          statusChange.changed ? 1 : 0,
+          now,
+          now,
         )
-          .bind(
-            applicationId,
-            userId,
-            parsed.company,
-            parsed.role,
-            parsed.status,
-            parsed.confidence,
-            parsed.nextSteps ?? null,
-            parsed.interviewDate ?? null,
-            statusChange.changed ? 1 : 0,
-            now,
-            now,
-          )
-          .run()
+        .run()
 
-        // Write status history if the status changed
-        if (statusChange.changed) {
-          await this.env.DB.prepare(
-            `
+      // Write status history if the status changed
+      if (statusChange.changed) {
+        await this.env.DB.prepare(
+          `
             INSERT INTO status_history (id, application_id, user_id, from_status, to_status, reason, changed_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
           `,
+        )
+          .bind(
+            crypto.randomUUID(),
+            applicationId,
+            userId,
+            statusChange.previousStatus,
+            statusChange.newStatus,
+            statusChange.reason,
+            now,
           )
-            .bind(
-              crypto.randomUUID(),
-              applicationId,
-              userId,
-              statusChange.previousStatus,
-              statusChange.newStatus,
-              statusChange.reason,
-              now,
-            )
-            .run()
-        }
+          .run()
       }
 
       this.log('Pipeline complete', { parsed, statusChange })

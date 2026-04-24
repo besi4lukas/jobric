@@ -1,5 +1,10 @@
 import { Agent } from 'agents'
-import type { Env } from '../types'
+import {
+  EmailEnvelopeSchema,
+  assertUserId,
+  type Env,
+  type EmailEnvelope,
+} from '../types'
 
 // ─── EmailWatcherAgent ─────────────────────────────────────────────────────────
 // Responsibility: Receive incoming emails, decide if they are job-related,
@@ -10,15 +15,11 @@ import type { Env } from '../types'
 export class EmailWatcherAgent extends Agent<Env> {
   // Called by the Worker email handler when a new email arrives
   async onRequest(req: Request): Promise<Response> {
-    const email = await req.json<{
-      from: string
-      to: string
-      subject: string
-      rawSize: number
-    }>()
+    const envelope = EmailEnvelopeSchema.parse(await req.json())
+    assertUserId(envelope.userId)
 
     // Quick subject-line filter before paying for an LLM call
-    const isJobRelated = this.isLikelyJobEmail(email.subject, email.from)
+    const isJobRelated = this.isLikelyJobEmail(envelope.subject, envelope.from)
 
     if (!isJobRelated) {
       return new Response('ignored — not job related', { status: 200 })
@@ -27,16 +28,16 @@ export class EmailWatcherAgent extends Agent<Env> {
     // Log to this agent's built-in SQLite (survives restarts/deploys)
     this.sql`
       INSERT OR IGNORE INTO watched_emails (from_addr, subject, received_at)
-      VALUES (${email.from}, ${email.subject}, ${new Date().toISOString()})
+      VALUES (${envelope.from}, ${envelope.subject}, ${new Date().toISOString()})
     `
 
-    // Hand off to OrchestratorAgent
+    // Hand off to OrchestratorAgent — forward full envelope (userId included)
     const orchId = this.env.OrchestratorAgent.idFromName('main')
     const orchStub = this.env.OrchestratorAgent.get(orchId)
 
     await orchStub.fetch('https://internal/process-email', {
       method: 'POST',
-      body: JSON.stringify(email),
+      body: JSON.stringify(envelope satisfies EmailEnvelope),
     })
 
     return new Response('handed off to orchestrator', { status: 200 })

@@ -1,7 +1,12 @@
 import { Agent } from 'agents'
 import { generateObject } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
-import { StatusChangeSchema, type Env, type ParsedApplication } from '../types'
+import {
+  StatusChangeSchema,
+  TrackEnvelopeSchema,
+  assertUserId,
+  type Env,
+} from '../types'
 
 // ─── StatusTrackerAgent ────────────────────────────────────────────────────────
 // Responsibility: Given a newly parsed application and the previous known state,
@@ -11,7 +16,9 @@ import { StatusChangeSchema, type Env, type ParsedApplication } from '../types'
 // ──────────────────────────────────────────────────────────────────────────────
 export class StatusTrackerAgent extends Agent<Env> {
   async onRequest(req: Request): Promise<Response> {
-    const incoming = await req.json<ParsedApplication>()
+    const envelope = TrackEnvelopeSchema.parse(await req.json())
+    assertUserId(envelope.userId)
+    const incoming = envelope.parsed
 
     // Look up last known status for this company + role from SQLite
     const existing = this.sql<{ status: string; application_id: string }>`
