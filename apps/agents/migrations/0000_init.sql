@@ -1,0 +1,2 @@
+-- Migration 0000: init
+-- Baseline migration. Schema lands in a later ticket.

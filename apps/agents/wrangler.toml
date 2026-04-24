@@ -35,7 +35,7 @@ new_sqlite_classes = [
 [[d1_databases]]
 binding = "DB"
 database_name = "jobric-db"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "38b2bab6-0149-47c2-a127-08b052d5f880"
 
 # ─── Vars (non-secret) ────────────────────────────────────────────────────────
 [vars]
