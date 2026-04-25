@@ -14,10 +14,11 @@ Copy the `database_id` printed by the command into `wrangler.toml` under the
 ## 2. Apply the schema
 
 ```bash
-wrangler d1 execute jobric-db --file=schema.sql
+pnpm migrate:local    # for local dev
+pnpm migrate:prod     # for the remote D1 (run before first deploy)
 ```
 
-This creates the `applications` and `status_history` tables and their indexes.
+See "Database migrations" below for the migration workflow.
 
 ## 3. Set the Clerk secret
 

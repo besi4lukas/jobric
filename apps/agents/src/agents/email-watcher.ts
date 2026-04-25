@@ -25,12 +25,6 @@ export class EmailWatcherAgent extends Agent<Env> {
       return new Response('ignored — not job related', { status: 200 })
     }
 
-    // Log to this agent's built-in SQLite (survives restarts/deploys)
-    this.sql`
-      INSERT OR IGNORE INTO watched_emails (from_addr, subject, received_at)
-      VALUES (${envelope.from}, ${envelope.subject}, ${new Date().toISOString()})
-    `
-
     // Hand off to OrchestratorAgent — forward full envelope (userId included)
     const orchId = this.env.OrchestratorAgent.idFromName('main')
     const orchStub = this.env.OrchestratorAgent.get(orchId)

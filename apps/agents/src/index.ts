@@ -46,8 +46,13 @@ export default {
       return new Response('Unauthorized', { status: 401 })
     }
 
-    // Route to the correct agent, forwarding the verified userId as props
-    const agentResponse = await routeAgentRequest(req, env, {
+    // Forward the verified userId to the agent. Props are private in the
+    // partyserver Server base class, so we attach the verified id as a header
+    // — trusted because the Worker just authenticated the JWT.
+    const authedReq = new Request(req)
+    authedReq.headers.set('X-User-Id', userId)
+
+    const agentResponse = await routeAgentRequest(authedReq, env, {
       props: { userId },
     })
     if (agentResponse) return agentResponse
