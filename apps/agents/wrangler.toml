@@ -45,7 +45,3 @@ CLERK_SECRET_KEY = "" # set via: wrangler secret put CLERK_SECRET_KEY
 # ─── Secrets (set via `wrangler secret put`) ──────────────────────────────────
 # ANTHROPIC_API_KEY     — Anthropic API key for Claude LLM calls
 # CLERK_SECRET_KEY      — Clerk secret key for JWT validation
-
-# ─── Email Routing ──────────────────────────────────────────────────────────────
-[[email]]
-name = "EMAIL"
