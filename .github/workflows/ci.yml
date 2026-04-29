@@ -41,6 +41,16 @@ jobs:
 
       - name: Build web
         run: pnpm turbo build --filter=@jobric/web
+        env:
+          # Dummy values so next build's prerender step can render <ClerkProvider>.
+          # CI only verifies the bundle compiles; no real auth is performed.
+          CLERK_SECRET_KEY: sk_test_ci-dummy
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2xlcmsuZXhhbXBsZS5jb20k
+          NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+          NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+          NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: /dashboard
+          NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: /dashboard
+          NEXT_PUBLIC_AGENTS_URL: https://agents.example.com
 
       - name: Bundle-check agents Worker
         run: pnpm --filter=@jobric/agents exec wrangler deploy --dry-run --outdir=dist
