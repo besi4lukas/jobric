@@ -1,0 +1,1 @@
+- [Auth & DB migration](project_auth_db_migration.md) -- Supabase removed, replaced with Clerk + Cloudflare D1 (2026-04-14)
