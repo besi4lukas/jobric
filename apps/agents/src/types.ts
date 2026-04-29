@@ -71,5 +71,6 @@ export interface Env {
   ANTHROPIC_API_KEY: string
   CLERK_SECRET_KEY: string
   CLERK_PUBLISHABLE_KEY: string
+  CLERK_WEBHOOK_SECRET: string
   DB: D1Database
 }

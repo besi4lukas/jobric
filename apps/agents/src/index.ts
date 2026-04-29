@@ -1,6 +1,7 @@
 import { routeAgentRequest } from 'agents'
 import { verifyToken } from '@clerk/backend'
 import type { Env, EmailEnvelope } from './types'
+import { handleClerkWebhook } from './webhooks/clerk'
 import type {
   ExportedHandler,
   ForwardableEmailMessage,
@@ -15,6 +16,8 @@ export { StatusTrackerAgent } from './agents/status-tracker'
 // ─── Worker Entry Point ────────────────────────────────────────────────────────
 export default {
   async fetch(req, env): Promise<Response> {
+    const url = new URL(req.url)
+
     // ── CORS preflight ──────────────────────────────────────────────────────
     if (req.method === 'OPTIONS') {
       return new Response(null, {
@@ -24,6 +27,11 @@ export default {
           'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         },
       })
+    }
+
+    // ── Clerk webhook — verified via svix signature, not Bearer JWT ────────
+    if (url.pathname === '/webhooks/clerk') {
+      return handleClerkWebhook(req, env)
     }
 
     // ── JWT Validation (Clerk) ──────────────────────────────────────────────
