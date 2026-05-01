@@ -84,7 +84,7 @@ export class OrchestratorAgent extends Agent<Env> {
       )
 
       // ── Step 5: Upsert the application row ────────────────────────────────
-      const newStatus = parsed.status
+      const newStatus = statusChange.newStatus
       const funnelRank = funnelRankFor(newStatus)
       const applicationId = existing?.id ?? crypto.randomUUID()
 

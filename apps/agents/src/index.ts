@@ -2,6 +2,10 @@ import { routeAgentRequest } from 'agents'
 import { verifyToken } from '@clerk/backend'
 import type { Env, EmailEnvelope } from './types'
 import { handleClerkWebhook } from './webhooks/clerk'
+import {
+  handleEmailAccountUpsert,
+  handleEmailAccountStatus,
+} from './routes/email-accounts'
 import type {
   ExportedHandler,
   ForwardableEmailMessage,
@@ -52,6 +56,14 @@ export default {
       userId = payload.sub
     } catch {
       return new Response('Unauthorized', { status: 401 })
+    }
+
+    // ── HTTP routes (non-agent) — must come BEFORE routeAgentRequest ───────
+    if (url.pathname === '/api/email-accounts') {
+      return handleEmailAccountUpsert(req, env, userId)
+    }
+    if (url.pathname === '/api/email-accounts/me') {
+      return handleEmailAccountStatus(req, env, userId)
     }
 
     // Forward the verified userId to the agent. Props are private in the
