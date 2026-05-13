@@ -29,11 +29,21 @@ export class EmailWatcherAgent extends Agent<Env> {
     const orchId = this.env.OrchestratorAgent.idFromName('main')
     const orchStub = this.env.OrchestratorAgent.get(orchId)
 
-    await orchStub.fetch('https://internal/process-email', {
-      method: 'POST',
-      body: JSON.stringify(envelope satisfies EmailEnvelope),
-    })
+    const orchResponse = await orchStub.fetch(
+      'https://internal/process-email',
+      {
+        method: 'POST',
+        body: JSON.stringify(envelope satisfies EmailEnvelope),
+      },
+    )
 
+    // Propagate non-2xx so the cron pins its watermark and retries next cycle.
+    // Successful pipeline runs AND captured parse_failures both return 2xx.
+    if (!orchResponse.ok) {
+      return new Response('orchestrator pipeline failed', {
+        status: orchResponse.status,
+      })
+    }
     return new Response('handed off to orchestrator', { status: 200 })
   }
 
