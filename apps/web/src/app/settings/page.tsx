@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
 import { z } from 'zod'
 import { env } from '../../env'
@@ -9,25 +10,17 @@ const StatusSchema = z.discriminatedUnion('connected', [
 ])
 type GmailStatus = z.infer<typeof StatusSchema>
 
-const REASON_MESSAGES: Record<string, string> = {
-  state_mismatch: "Couldn't verify the OAuth state. Please try again.",
-  missing_params: 'Google did not return the expected parameters.',
-  token_exchange_failed:
-    'Google rejected the authorization code. Please try again.',
-  userinfo_failed: "Couldn't read your Google account email.",
-  email_in_use: 'That Gmail address is already linked to another account.',
-  upsert_failed: "Couldn't save the connection. Please try again.",
-  no_session_token: 'Your session expired. Please sign in again.',
-  access_denied: 'You declined to share access.',
+const FLASH_COOKIE_NAME = 'gmail_oauth_flash'
+
+const FLASH_MESSAGES: Record<string, string> = {
+  access_denied:
+    'You declined to share access. Connect Gmail to track your applications.',
+  email_in_use:
+    'That Gmail address is already linked to another Jobric account.',
+  generic: "Couldn't connect Gmail. Please try again.",
 }
 
-type SettingsPageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-export default async function SettingsPage({
-  searchParams,
-}: SettingsPageProps) {
+export default async function SettingsPage() {
   const { userId, getToken } = await auth()
   if (!userId) {
     return (
@@ -37,12 +30,8 @@ export default async function SettingsPage({
     )
   }
 
-  const params = await searchParams
-  const flashStatus = pickString(params.status)
-  const flashEmail = pickString(params.email)
-  const flashReason = pickString(params.reason)
-
   const status = await fetchGmailStatus(getToken)
+  const flashMessage = await readFlashMessage()
 
   return (
     <main
@@ -75,20 +64,7 @@ export default async function SettingsPage({
 
         <ConnectionStatus status={status} />
 
-        {flashStatus === 'connected' && flashEmail && (
-          <p
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem',
-              background: '#ecfdf5',
-              color: '#065f46',
-              borderRadius: '6px',
-            }}
-          >
-            Connected {flashEmail}.
-          </p>
-        )}
-        {flashStatus === 'error' && (
+        {flashMessage && (
           <p
             style={{
               marginTop: '1rem',
@@ -98,8 +74,7 @@ export default async function SettingsPage({
               borderRadius: '6px',
             }}
           >
-            {(flashReason && REASON_MESSAGES[flashReason]) ??
-              'Something went wrong connecting Gmail.'}
+            {flashMessage}
           </p>
         )}
 
@@ -163,7 +138,9 @@ async function fetchGmailStatus(
   }
 }
 
-function pickString(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0]
-  return value
+async function readFlashMessage(): Promise<string | null> {
+  const cookieStore = await cookies()
+  const code = cookieStore.get(FLASH_COOKIE_NAME)?.value
+  if (!code) return null
+  return FLASH_MESSAGES[code] ?? FLASH_MESSAGES.generic!
 }

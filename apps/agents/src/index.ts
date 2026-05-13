@@ -6,9 +6,12 @@ import {
   handleEmailAccountUpsert,
   handleEmailAccountStatus,
 } from './routes/email-accounts'
+import { runScheduledPoll } from './cron'
 import type {
   ExportedHandler,
   ForwardableEmailMessage,
+  ScheduledController,
+  ExecutionContext,
 } from '@cloudflare/workers-types'
 
 // Re-export all agent classes so Cloudflare can register the Durable Objects
@@ -115,5 +118,16 @@ export default {
       method: 'POST',
       body: JSON.stringify(envelope),
     })
+  },
+
+  // Cloudflare cron trigger — see [triggers] in wrangler.toml.
+  // Polls Gmail history for every connected account; runs every 5 min.
+  // ctx.waitUntil ensures the poll completes even if scheduled() returns first.
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(runScheduledPoll(env))
   },
 } satisfies ExportedHandler<Env>

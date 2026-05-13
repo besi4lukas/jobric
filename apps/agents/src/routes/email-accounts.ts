@@ -9,6 +9,9 @@ import type { Env } from '../types'
 const UpsertBodySchema = z.object({
   email: z.string().email(),
   encryptedRefreshToken: z.string().min(1),
+  // Required: anchors forward-only ingestion. Reconnect intentionally
+  // re-anchors to "now," so the ON CONFLICT branch overwrites this too.
+  lastHistoryId: z.string().min(1),
 })
 
 export async function handleEmailAccountUpsert(
@@ -55,11 +58,19 @@ export async function handleEmailAccountUpsert(
       `DELETE FROM email_accounts WHERE user_id = ? AND email != ?`,
     ).bind(userId, body.email),
     env.DB.prepare(
-      `INSERT INTO email_accounts (id, user_id, email, encrypted_refresh_token, created_at)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO email_accounts (id, user_id, email, encrypted_refresh_token, last_history_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT (email) DO UPDATE SET
-         encrypted_refresh_token = excluded.encrypted_refresh_token`,
-    ).bind(id, userId, body.email, body.encryptedRefreshToken, now),
+         encrypted_refresh_token = excluded.encrypted_refresh_token,
+         last_history_id = excluded.last_history_id`,
+    ).bind(
+      id,
+      userId,
+      body.email,
+      body.encryptedRefreshToken,
+      body.lastHistoryId,
+      now,
+    ),
   ])
 
   log('email_accounts upserted', { userId })
