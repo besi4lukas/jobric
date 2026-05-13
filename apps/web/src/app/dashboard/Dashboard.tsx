@@ -4,9 +4,7 @@ import { useState } from 'react'
 import { CompaniesView } from './_components/companies/CompaniesView'
 import { InboxView } from './_components/inbox/InboxView'
 import { OverviewView } from './_components/overview/OverviewView'
-import { RemindersView } from './_components/reminders/RemindersView'
 import { Sidebar } from './_components/Sidebar'
-import { TimelineView } from './_components/timeline/TimelineView'
 import { Topbar } from './_components/Topbar'
 import { TITLES } from './_data/titles'
 import type { ViewKey } from './_lib/types'
@@ -43,8 +41,6 @@ export function Dashboard({
             {view === 'overview' && <OverviewView />}
             {view === 'inbox' && <InboxView />}
             {view === 'companies' && <CompaniesView />}
-            {view === 'timeline' && <TimelineView />}
-            {view === 'reminders' && <RemindersView userEmail={userEmail} />}
           </div>
         </main>
       </div>
