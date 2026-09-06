@@ -46,10 +46,6 @@ export default function HomePage() {
         <header className="hero">
           <div className="hero-grid">
             <div>
-              <span className="eyebrow">
-                <span className="dot" />
-                <span>Works with Gmail</span>
-              </span>
               <h1 className="display">
                 The job search is <span className="ital">messy</span>.
                 <br />
@@ -126,8 +122,8 @@ export default function HomePage() {
               </h2>
               <p className="sub">
                 Most tracking tools want you to keep updating them. Jobric is
-                the opposite — once it&apos;s set up, the updating happens on
-                its own.
+                the opposite. Once it&apos;s set up, the updating happens on its
+                own.
               </p>
             </div>
           </div>
@@ -137,8 +133,8 @@ export default function HomePage() {
               <div className="num">i.</div>
               <h3>Connect Gmail</h3>
               <p>
-                One tap, read-only. We ask for the narrowest scope Google offers
-                — no sending, no drafting, no contacts.
+                One tap, read-only. We ask for the narrowest scope Google
+                offers: no sending, no drafting, no contacts.
               </p>
               <div className="illus">
                 <span className="pill">gmail.readonly</span>
@@ -152,7 +148,7 @@ export default function HomePage() {
               <h3>We spot the signals</h3>
               <p>
                 Application confirmations, recruiter replies, scheduled
-                interviews, polite rejections — all of it, in all its templates.
+                interviews, polite rejections. All of it, in all its templates.
               </p>
               <div className="illus">
                 <span className="pill green">interview · apr 22</span>
@@ -220,7 +216,7 @@ export default function HomePage() {
                   </div>
                   <div className="stat-cell">
                     <div className="big">11</div>
-                    <div className="lbl">In conversation</div>
+                    <div className="lbl">Interviewing</div>
                     <div className="trend">↑ 2 this week</div>
                   </div>
                   <div className="stat-cell">
@@ -323,12 +319,12 @@ export default function HomePage() {
                 </h2>
                 <p className="sub">
                   Letting an AI look at your email deserves a real answer, not a
-                  checkbox. Here&apos;s exactly what Jobric does — and, more
+                  checkbox. Here&apos;s exactly what Jobric does, and, more
                   importantly, what it never does.
                 </p>
                 <p className="signoff">
-                  — we&apos;d be uneasy too. so we built it the way we&apos;d
-                  want.
+                  We&apos;d be uneasy too. So we built it the way we&apos;d want
+                  it built.
                 </p>
               </div>
 
@@ -351,7 +347,7 @@ export default function HomePage() {
                   icon={<path d="M3 12h4l3-9 4 18 3-9h4" />}
                   title="Only job-related mail is processed."
                   body="We filter by sender reputation and subject patterns before anything is read. Your bank, your family, your newsletters — invisible to us."
-                  badge="~98% of your inbox, untouched"
+                  badge="98% of your inbox, untouched"
                 />
                 <PrivacyCard
                   icon={
@@ -360,7 +356,7 @@ export default function HomePage() {
                       <path d="M12 7v5l3 2" />
                     </>
                   }
-                  title="Your data, your ejector seat."
+                  title="Your data, your escape hatch."
                   body="Disconnect anytime — we delete everything within 24 hours. No cold storage, no backups, no exceptions."
                   badge="SOC 2 Type II · in progress"
                 />
@@ -371,7 +367,7 @@ export default function HomePage() {
                       <path d="M8 10V7a4 4 0 018 0v3" />
                     </>
                   }
-                  title="Never sold. Never trained on."
+                  title="Never sold. Never used to train AI."
                   body="Your email is not a dataset. We don't sell it, share it with recruiters, or use it to train anything."
                   badge="Written into our Terms"
                 />
@@ -399,9 +395,6 @@ export default function HomePage() {
             Connect Gmail in about ten seconds. We&apos;ll take it from there.
           </p>
           <SignupForm />
-          <p className="fineprint">
-            GMAIL · READ-ONLY · REVOCABLE · FREE IN BETA
-          </p>
         </div>
       </section>
 

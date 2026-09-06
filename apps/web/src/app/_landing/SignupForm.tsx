@@ -29,19 +29,6 @@ export function SignupForm() {
           <span className="arrow">→</span>
         </button>
       </div>
-      <span className="hero-note">
-        <svg
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          strokeWidth={1.5}
-        >
-          <path d="M4 12s3-7 8-7 8 7 8 7-3 7-8 7-8-7-8-7z" />
-          <circle cx="12" cy="12" r="3" />
-        </svg>
-        read-only access
-      </span>
     </form>
   )
 }
