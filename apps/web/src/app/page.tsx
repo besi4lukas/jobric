@@ -157,7 +157,7 @@ export default function HomePage() {
                   templates.
                 </p>
                 <div className="illus">
-                  <span className="pill green">interview · apr 22</span>
+                  <span className="pill green">interview </span>
                   <div className="line b" />
                   <div className="line a" />
                   <div className="line b" />
@@ -206,7 +206,6 @@ export default function HomePage() {
                   <span>Timeline</span>
                   <span>Reminders</span>
                 </div>
-                <span className="sync">Last sync · 2 min ago</span>
               </div>
               <p className="dash-caption">
                 Illustrative sample data, not your real activity.
@@ -326,10 +325,6 @@ export default function HomePage() {
                     a checkbox. Here&apos;s exactly what Jobric does, and, more
                     importantly, what it never does.
                   </p>
-                  <p className="signoff">
-                    We&apos;d be uneasy too. So we built it the way we&apos;d
-                    want it built.
-                  </p>
                 </div>
 
                 <div className="privacy-cards">
@@ -345,13 +340,11 @@ export default function HomePage() {
                         can&apos;t send, reply, delete, or draft. Ever.
                       </>
                     }
-                    badge="Google-verified scope"
                   />
                   <PrivacyCard
                     icon={<path d="M3 12h4l3-9 4 18 3-9h4" />}
                     title="Only job-related mail is processed."
                     body="We filter by sender reputation and subject patterns before anything is read. Your bank, your family, your newsletters stay invisible to us."
-                    badge="98% of your inbox, untouched"
                   />
                   <PrivacyCard
                     icon={
@@ -362,7 +355,6 @@ export default function HomePage() {
                     }
                     title="Your data, your escape hatch."
                     body="Disconnect anytime. We delete everything within 24 hours. No cold storage, no backups, no exceptions."
-                    badge="SOC 2 Type II · in progress"
                   />
                   <PrivacyCard
                     icon={
@@ -373,7 +365,6 @@ export default function HomePage() {
                     }
                     title="Never sold. Never used to train AI."
                     body="Your email is not a dataset. We don't sell it, share it with recruiters, or use it to train anything."
-                    badge="Written into our Terms"
                   />
                 </div>
               </div>
@@ -400,7 +391,6 @@ export default function HomePage() {
         <Link className="wordmark" href="/">
           <span className="plate footer-wordmark">Jobric</span>
         </Link>
-        <span className="signoff">good luck out there.</span>
         <span>© 2026 · Privacy · Terms · hello@jobric.app</span>
       </footer>
     </div>
@@ -439,12 +429,10 @@ function PrivacyCard({
   icon,
   title,
   body,
-  badge,
 }: {
   icon: React.ReactNode
   title: string
   body: React.ReactNode
-  badge: string
 }) {
   return (
     <div className="p-card">
@@ -465,7 +453,6 @@ function PrivacyCard({
       <div>
         <h3>{title}</h3>
         <p>{body}</p>
-        <span className="badge">{badge}</span>
       </div>
     </div>
   )
