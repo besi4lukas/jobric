@@ -388,7 +388,7 @@ export default function HomePage() {
         <Link className="wordmark" href="/">
           <span className="plate footer-wordmark">Jobric</span>
         </Link>
-        <span>© {new Date().getFullYear()} · hello@jobric.app</span>
+        <span>© {new Date().getFullYear()} hello@jobric.app</span>
       </footer>
     </div>
   )
