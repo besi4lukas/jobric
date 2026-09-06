@@ -2,9 +2,16 @@ import { routeAgentRequest } from 'agents'
 import { verifyToken } from '@clerk/backend'
 import type { Env, EmailEnvelope } from './types'
 import { handleClerkWebhook } from './webhooks/clerk'
+import {
+  handleEmailAccountUpsert,
+  handleEmailAccountStatus,
+} from './routes/email-accounts'
+import { runScheduledPoll } from './cron'
 import type {
   ExportedHandler,
   ForwardableEmailMessage,
+  ScheduledController,
+  ExecutionContext,
 } from '@cloudflare/workers-types'
 
 // Re-export all agent classes so Cloudflare can register the Durable Objects
@@ -52,6 +59,14 @@ export default {
       userId = payload.sub
     } catch {
       return new Response('Unauthorized', { status: 401 })
+    }
+
+    // ── HTTP routes (non-agent) — must come BEFORE routeAgentRequest ───────
+    if (url.pathname === '/api/email-accounts') {
+      return handleEmailAccountUpsert(req, env, userId)
+    }
+    if (url.pathname === '/api/email-accounts/me') {
+      return handleEmailAccountStatus(req, env, userId)
     }
 
     // Forward the verified userId to the agent. Props are private in the
@@ -103,5 +118,16 @@ export default {
       method: 'POST',
       body: JSON.stringify(envelope),
     })
+  },
+
+  // Cloudflare cron trigger — see [triggers] in wrangler.toml.
+  // Polls Gmail history for every connected account; runs every 5 min.
+  // ctx.waitUntil ensures the poll completes even if scheduled() returns first.
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(runScheduledPoll(env))
   },
 } satisfies ExportedHandler<Env>

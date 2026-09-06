@@ -51,6 +51,11 @@ jobs:
           NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL: /dashboard
           NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL: /dashboard
           NEXT_PUBLIC_AGENTS_URL: https://agents.example.com
+          GOOGLE_CLIENT_ID: ci-dummy-client-id
+          GOOGLE_CLIENT_SECRET: ci-dummy-client-secret
+          GOOGLE_OAUTH_REDIRECT_URI: http://localhost:3000/api/gmail/callback
+          # base64 of 32 zero bytes — passes .min(1); never used at build time
+          GMAIL_TOKEN_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
       - name: Bundle-check agents Worker
         run: pnpm --filter=@jobric/agents exec wrangler deploy --dry-run --outdir=dist

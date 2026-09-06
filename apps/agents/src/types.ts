@@ -42,6 +42,10 @@ export const EmailEnvelopeSchema = z.object({
   subject: z.string(),
   body: z.string().optional(),
   rawSize: z.number().optional(),
+  // Present on the cron path (we have the Gmail API message id). Absent on
+  // the Cloudflare Email Workers path. Required for parse_failures capture —
+  // failures without this id can't be replayed and surface as 5xx to caller.
+  gmailMessageId: z.string().min(1).optional(),
 })
 
 export type EmailEnvelope = z.infer<typeof EmailEnvelopeSchema>
@@ -72,5 +76,9 @@ export interface Env {
   CLERK_SECRET_KEY: string
   CLERK_PUBLISHABLE_KEY: string
   CLERK_WEBHOOK_SECRET: string
+  // Gmail OAuth + token decryption (Worker secrets via `wrangler secret put`)
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
+  GMAIL_TOKEN_KEY: string
   DB: D1Database
 }

@@ -1,9 +1,4 @@
-export type ViewKey =
-  | 'overview'
-  | 'inbox'
-  | 'companies'
-  | 'timeline'
-  | 'reminders'
+export type ViewKey = 'overview' | 'inbox' | 'companies'
 
 export type StatusKey =
   | 'applied'
@@ -12,10 +7,6 @@ export type StatusKey =
   | 'offer'
   | 'rejected'
   | 'final'
-
-export type InboxFilter = 'all' | 'unread' | 'interviewing' | 'offers'
-export type CompaniesTab = 'all' | 'active' | 'offers' | 'closed' | 'archived'
-export type TimelineTab = 'all' | 'applications' | 'interviews' | 'offers'
 
 export type Thread = {
   id: string
@@ -30,22 +21,6 @@ export type Thread = {
   unread: boolean
 }
 
-export type ThreadEvent = {
-  kind: StatusKey
-  when: string
-  title: string
-  sender: string
-  excerpt: string
-}
-
-export type ThreadDetail = {
-  status: StatusKey
-  statusLabel: string
-  meta: string
-  summary: React.ReactNode
-  events: ThreadEvent[]
-}
-
 export type Company = {
   logo: string
   name: string
@@ -57,51 +32,17 @@ export type Company = {
   when: string
 }
 
-export type TimelineEvent = {
-  kind: StatusKey
-  title: string
-  note: string
-  date: string
-}
-
-export type TimelineMonth = {
-  label: string
-  year: string
-  events: TimelineEvent[]
-}
-
-export type Reminder = {
-  d: string
-  m: string
-  title: string
-  co: string
-  chip: string
-  pill: string
-  sub?: string
-  urgent?: boolean
-}
-
 export type Stat = {
   label: string
   value: string
   unit: string | null
-  trend: string
-  points: string
-  stroke: string
+  trend?: string
 }
 
 export type FunnelStep = {
   label: string
   w: number
   n: number
-}
-
-export type UpcomingItem = {
-  d: string
-  m: string
-  role: string
-  co: string
-  time: string
 }
 
 export type RecentActivity = {

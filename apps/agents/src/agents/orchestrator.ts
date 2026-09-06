@@ -84,7 +84,7 @@ export class OrchestratorAgent extends Agent<Env> {
       )
 
       // ── Step 5: Upsert the application row ────────────────────────────────
-      const newStatus = parsed.status
+      const newStatus = statusChange.newStatus
       const funnelRank = funnelRankFor(newStatus)
       const applicationId = existing?.id ?? crypto.randomUUID()
 
@@ -142,7 +142,43 @@ export class OrchestratorAgent extends Agent<Env> {
       this.log('Pipeline complete', { applicationId, parsed, statusChange })
       return Response.json({ applicationId, parsed, statusChange })
     } catch (err) {
-      this.log('Pipeline error', { error: String(err) })
+      const errorText = err instanceof Error ? err.message : String(err)
+      this.log('Pipeline error', { userId: envelope.userId, error: errorText })
+
+      // Capture to parse_failures so the message is queryable for later
+      // replay, then return 2xx so upstream (cron) advances its watermark.
+      // Without this, parser/Sonnet hiccups silently drop messages.
+      if (envelope.gmailMessageId) {
+        try {
+          await this.env.DB.prepare(
+            `INSERT INTO parse_failures
+               (id, user_id, gmail_message_id, error, attempted_at, payload)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+          )
+            .bind(
+              crypto.randomUUID(),
+              envelope.userId,
+              envelope.gmailMessageId,
+              errorText,
+              new Date().toISOString(),
+              JSON.stringify(envelope),
+            )
+            .run()
+          return Response.json({ captured: true })
+        } catch (writeErr) {
+          // Failure-of-the-failure: do NOT swallow. Surfacing 5xx keeps the
+          // cron watermark pinned so the next run retries.
+          this.log('parse_failures write failed', {
+            error: String(writeErr),
+          })
+          return new Response('pipeline error and capture failed', {
+            status: 500,
+          })
+        }
+      }
+
+      // No gmail_message_id (Cloudflare Email Workers path). Can't capture
+      // for replay — surface 5xx so the caller sees the failure.
       return new Response('pipeline error', { status: 500 })
     }
   }
