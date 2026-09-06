@@ -52,8 +52,8 @@ export default function HomePage() {
                 Your <span className="under">tracker</span> shouldn&apos;t be.
               </h1>
               <p className="lede">
-                Jobric quietly reads your inbox for job-related email —
-                applications, replies, interviews, rejections — and keeps a
+                Jobric quietly reads your inbox for job-related email:
+                applications, replies, interviews, rejections. It keeps a
                 gentle, up-to-date record of where you stand. No spreadsheets.
                 No nagging.
               </p>
@@ -64,7 +64,7 @@ export default function HomePage() {
               <div className="v1-letter">
                 <div className="from">FROM: recruiting@northwind.co</div>
                 <div className="subj">
-                  Thanks for applying to Northwind — next steps
+                  Thanks for applying to Northwind: next steps
                 </div>
                 <div className="body-lines">
                   <div />
@@ -115,7 +115,6 @@ export default function HomePage() {
 
         <section className="section" id="how">
           <div className="section-head">
-            <span className="section-num">01 / How it works</span>
             <div>
               <h2>
                 Three small steps. <em>Then nothing.</em>
@@ -180,7 +179,6 @@ export default function HomePage() {
       <section className="section dash-section" id="dashboard">
         <div className="wrap">
           <div className="section-head">
-            <span className="section-num">02 / The dashboard</span>
             <div>
               <h2>
                 Everything you&apos;ve applied to,{' '}
@@ -188,7 +186,7 @@ export default function HomePage() {
               </h2>
               <p className="sub">
                 A snapshot of your search, the funnel you never had time to
-                build, and the next thing you need to do — all in one place.
+                build, and the next thing you need to do. All in one place.
               </p>
             </div>
           </div>
@@ -309,10 +307,6 @@ export default function HomePage() {
           <div className="privacy">
             <div className="privacy-inner">
               <div>
-                <span className="eyebrow">
-                  <span className="dot" />
-                  <span>Privacy first, always</span>
-                </span>
                 <h2>
                   Your inbox is yours.{' '}
                   <em>We&apos;re just reading the job parts.</em>
@@ -346,7 +340,7 @@ export default function HomePage() {
                 <PrivacyCard
                   icon={<path d="M3 12h4l3-9 4 18 3-9h4" />}
                   title="Only job-related mail is processed."
-                  body="We filter by sender reputation and subject patterns before anything is read. Your bank, your family, your newsletters — invisible to us."
+                  body="We filter by sender reputation and subject patterns before anything is read. Your bank, your family, your newsletters stay invisible to us."
                   badge="98% of your inbox, untouched"
                 />
                 <PrivacyCard
@@ -357,7 +351,7 @@ export default function HomePage() {
                     </>
                   }
                   title="Your data, your escape hatch."
-                  body="Disconnect anytime — we delete everything within 24 hours. No cold storage, no backups, no exceptions."
+                  body="Disconnect anytime. We delete everything within 24 hours. No cold storage, no backups, no exceptions."
                   badge="SOC 2 Type II · in progress"
                 />
                 <PrivacyCard
@@ -379,13 +373,6 @@ export default function HomePage() {
 
       <section className="section close" id="signup">
         <div className="wrap">
-          <span
-            className="eyebrow"
-            style={{ justifyContent: 'center', display: 'inline-flex' }}
-          >
-            <span className="dot" />
-            <span>Free while we&apos;re in beta</span>
-          </span>
           <h2>
             Put the <em>spreadsheet</em>
             <br />

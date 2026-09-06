@@ -3,7 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import './landing.css'
 
 export const metadata: Metadata = {
-  title: 'Jobric — a calmer way to track your job search',
+  title: 'Jobric: a calmer way to track your job search',
   description:
     'Jobric quietly reads your inbox for job-related email and keeps a gentle, up-to-date record of where you stand.',
 }
