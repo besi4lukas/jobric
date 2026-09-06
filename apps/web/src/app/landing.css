@@ -274,18 +274,6 @@ body {
   transform: translateX(2px);
 }
 
-.landing .hero-note {
-  font-family: var(--f-script);
-  font-size: 22px;
-  color: var(--ink-mute);
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.landing .hero-note svg {
-  stroke: var(--ink-mute);
-}
-
 /* Hero V1 art */
 .landing .hero-grid {
   display: grid;
@@ -385,7 +373,7 @@ body {
   border-radius: 10px;
   padding: 14px 16px;
   display: grid;
-  grid-template-columns: 36px 1fr auto;
+  grid-template-columns: 36px 1fr;
   gap: 12px;
   align-items: center;
   box-shadow: 0 10px 24px -20px rgba(43, 34, 27, 0.4);

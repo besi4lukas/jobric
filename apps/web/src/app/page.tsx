@@ -94,25 +94,22 @@ export default function HomePage() {
                     <div className="logo">N</div>
                     <div className="meta">
                       <div className="role">Senior Product Designer</div>
-                      <div className="co">Northwind · Remote</div>
+                      <div className="co">Northwind</div>
                     </div>
-                    <div className="status applied">Applied</div>
                   </div>
                   <div className="job-card">
                     <div className="logo">◎</div>
                     <div className="meta">
                       <div className="role">Product Manager, Growth</div>
-                      <div className="co">Lumen Labs · Austin</div>
+                      <div className="co">Lumen Labs</div>
                     </div>
-                    <div className="status interview">Interview</div>
                   </div>
                   <div className="job-card">
                     <div className="logo">✦</div>
                     <div className="meta">
                       <div className="role">Design Engineer</div>
-                      <div className="co">Fieldnote · NYC</div>
+                      <div className="co">Fieldnote</div>
                     </div>
-                    <div className="status offer">Offer</div>
                   </div>
                 </div>
               </div>
@@ -135,7 +132,7 @@ export default function HomePage() {
 
             <div className="steps">
               <div className="step">
-                <div className="num">i.</div>
+                <div className="num">1.</div>
                 <h3>Connect Gmail</h3>
                 <p>
                   One tap, read-only. We ask for the narrowest scope Google
@@ -149,7 +146,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="step">
-                <div className="num">ii.</div>
+                <div className="num">2.</div>
                 <h3>We spot the signals</h3>
                 <p>
                   Application confirmations, recruiter replies, scheduled
@@ -164,7 +161,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="step">
-                <div className="num">iii.</div>
+                <div className="num">3.</div>
                 <h3>You see the whole picture</h3>
                 <p>
                   A calm dashboard. A timeline per company. Reminders before
@@ -391,7 +388,7 @@ export default function HomePage() {
         <Link className="wordmark" href="/">
           <span className="plate footer-wordmark">Jobric</span>
         </Link>
-        <span>© 2026 · Privacy · Terms · hello@jobric.app</span>
+        <span>© {new Date().getFullYear()} · hello@jobric.app</span>
       </footer>
     </div>
   )
