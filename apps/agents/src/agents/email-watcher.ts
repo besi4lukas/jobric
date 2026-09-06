@@ -7,7 +7,7 @@ import {
 } from '../types'
 
 // ─── EmailWatcherAgent ─────────────────────────────────────────────────────────
-// Responsibility: Receive incoming emails, decide if they are job-related,
+// Responsibility: Receive incoming emails, decide if they are job-related
 // and hand off to the OrchestratorAgent.
 //
 // This agent has ONE singleton instance ("watcher") — it's the inbox listener.
