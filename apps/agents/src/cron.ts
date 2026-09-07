@@ -1,5 +1,6 @@
 import { decryptRefreshToken } from './lib/crypto'
 import { getAccessToken, listHistory, getMessage } from './gmail/client'
+import { generateOverviewSummary } from './lib/overview-summary'
 import type { Env, EmailEnvelope } from './types'
 
 // Forward-only Gmail polling. Invariant: email_accounts.last_history_id is
@@ -21,6 +22,11 @@ type AccountRow = {
 }
 
 export async function runScheduledPoll(env: Env): Promise<void> {
+  // Captured before any polling so the post-batch "did this account's batch
+  // produce a new event" check (below) can't miss events written during
+  // this very tick, and can't double-count events from a previous tick.
+  const tickStartedAt = new Date().toISOString()
+
   const result = await env.DB.prepare(
     `SELECT id, user_id, email, encrypted_refresh_token, last_history_id
      FROM email_accounts
@@ -36,6 +42,36 @@ export async function runScheduledPoll(env: Env): Promise<void> {
     try {
       const newCount = await pollAccount(account, env)
       totalNewMessages += newCount
+
+      // Overview summary generation — coalesced to at most once per account
+      // per tick, and only when this account's batch actually produced a
+      // status change. This is safe to sequence here because cron.ts awaits
+      // the watcher, which awaits the orchestrator, so all D1 writes for the
+      // batch are complete by the time pollAccount returns. Never on the
+      // read path (routes/overview.ts) — see lib/overview-summary.ts.
+      //
+      // Wrapped in its own try/catch, separate from the poll-failure catch
+      // below: a summary failure must never look like a poll failure (which
+      // would otherwise pin the watermark), and must never affect it.
+      if (newCount > 0) {
+        try {
+          const changedResult = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM events
+             WHERE user_id = ? AND occurred_at >= ?`,
+          )
+            .bind(account.user_id, tickStartedAt)
+            .first<{ n: number }>()
+
+          if ((changedResult?.n ?? 0) > 0) {
+            await generateOverviewSummary(env, account.user_id)
+          }
+        } catch (err) {
+          log('cron overview summary check failed', {
+            userId: account.user_id,
+            error: errorMessage(err),
+          })
+        }
+      }
     } catch (err) {
       // Per-account isolation. Logging the userId is fine; never the email
       // address, refresh_token, message content, or anything else sensitive.
@@ -104,9 +140,11 @@ async function pollAccount(account: AccountRow, env: Env): Promise<number> {
   }
 
   await env.DB.prepare(
-    `UPDATE email_accounts SET last_history_id = ? WHERE id = ?`,
+    `UPDATE email_accounts
+       SET last_history_id = ?, last_polled_at = ?
+     WHERE id = ?`,
   )
-    .bind(newHistoryId, account.id)
+    .bind(newHistoryId, new Date().toISOString(), account.id)
     .run()
 
   return messageIds.length

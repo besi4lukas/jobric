@@ -58,6 +58,10 @@ Each agent extends `Agent` from the `agents` package and has built-in SQLite via
 
 **UI package exports:** Components are exported via the `exports` field in `packages/ui/package.json` using the `./src/*.tsx` pattern — import as `@repo/ui/button` etc.
 
+## UI conventions
+
+No `·` middot separators. Use whitespace, a flex `gap`, or a distinct element.
+
 ## Tech Stack
 
 | Concern       | Technology                              |

@@ -6,6 +6,7 @@ import {
   handleEmailAccountUpsert,
   handleEmailAccountStatus,
 } from './routes/email-accounts'
+import { handleOverview } from './routes/overview'
 import { runScheduledPoll } from './cron'
 import type {
   ExportedHandler,
@@ -67,6 +68,9 @@ export default {
     }
     if (url.pathname === '/api/email-accounts/me') {
       return handleEmailAccountStatus(req, env, userId)
+    }
+    if (url.pathname === '/api/overview') {
+      return handleOverview(req, env, userId)
     }
 
     // Forward the verified userId to the agent. Props are private in the

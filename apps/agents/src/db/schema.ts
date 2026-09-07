@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
-// Mirrors apps/agents/migrations/0001_schema_v1.sql.
-// Keep CHECK constraints, NOT NULL choices, and enum values in sync with SQL.
+// Mirrors apps/agents/migrations/0001_schema_v1.sql, 0002_overview.sql, and
+// 0003_overview_summary.sql. Keep CHECK constraints, NOT NULL choices, and
+// enum values in sync with SQL.
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 export const ApplicationStatusSchema = z.enum([
@@ -61,6 +62,7 @@ export const EmailAccountSchema = z.object({
   lastHistoryId: z.string().nullable(),
   watchExpiresAt: isoDateTime.nullable(),
   createdAt: isoDateTime,
+  lastPolledAt: isoDateTime.nullable(),
 })
 export type EmailAccount = z.infer<typeof EmailAccountSchema>
 
@@ -87,6 +89,7 @@ export const ApplicationSchema = z
     funnelRank: z.number().int().min(0).max(4),
     firstContactAt: isoDateTime,
     lastActivityAt: isoDateTime,
+    interviewAt: isoDateTime.nullable(),
   })
   .refine((a) => a.funnelRank === FUNNEL_RANK_BY_STATUS[a.status], {
     message: 'funnelRank does not match status',
@@ -145,3 +148,20 @@ export const ParseFailureSchema = z.object({
   payload: z.record(z.string(), z.unknown()),
 })
 export type ParseFailure = z.infer<typeof ParseFailureSchema>
+
+// ─── user_summaries ──────────────────────────────────────────────────────────
+// Derived cache, not a source of truth — see migration 0003_overview_summary.sql.
+// Distinct from threads.summary (per-thread, still unwritten — techdebt #7).
+// Text columns are nullable on purpose: a failed first attempt creates a row
+// with no text, and a stale-while-error read keeps serving the last good
+// headline/body until the next successful cron-triggered generation.
+export const UserSummarySchema = z.object({
+  userId: id,
+  headline: z.string().nullable(),
+  body: z.string().nullable(),
+  model: z.string().nullable(),
+  generatedAt: isoDateTime.nullable(),
+  attemptedAt: isoDateTime.nullable(),
+  failureCount: z.number().int().nonnegative(),
+})
+export type UserSummary = z.infer<typeof UserSummarySchema>

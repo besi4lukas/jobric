@@ -4,7 +4,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'N',
     name: 'Northwind Design',
-    role: 'Senior Product Designer · Remote',
+    role: 'Senior Product Designer — Remote',
     status: 'interview',
     statusLabel: 'Interview',
     emails: 5,
@@ -14,7 +14,7 @@ export const COMPANIES: Company[] = [
   {
     logo: '✦',
     name: 'Fieldnote',
-    role: 'Design Engineer · NYC',
+    role: 'Design Engineer — NYC',
     status: 'offer',
     statusLabel: 'Offer',
     emails: 8,
@@ -24,7 +24,7 @@ export const COMPANIES: Company[] = [
   {
     logo: '◎',
     name: 'Lumen Labs',
-    role: 'Product Manager, Growth · Austin',
+    role: 'Product Manager, Growth — Austin',
     status: 'replied',
     statusLabel: 'Recruiter replied',
     emails: 3,
@@ -34,7 +34,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'T',
     name: 'Thorne & Co',
-    role: 'Staff Designer · Remote',
+    role: 'Staff Designer — Remote',
     status: 'interview',
     statusLabel: 'Intro scheduled',
     emails: 4,
@@ -44,7 +44,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'A',
     name: 'Anvil',
-    role: 'Design Lead · SF',
+    role: 'Design Lead — SF',
     status: 'interview',
     statusLabel: 'Take-home',
     emails: 2,
@@ -54,7 +54,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'H',
     name: 'Harbor',
-    role: 'Senior UX Researcher · Remote',
+    role: 'Senior UX Researcher — Remote',
     status: 'applied',
     statusLabel: 'Applied',
     emails: 1,
@@ -64,7 +64,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'K',
     name: 'Kindle & Co',
-    role: 'Senior Designer · Remote',
+    role: 'Senior Designer — Remote',
     status: 'replied',
     statusLabel: 'Referred',
     emails: 2,
@@ -74,7 +74,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'R',
     name: 'Relay',
-    role: 'Product Designer II · Remote',
+    role: 'Product Designer II — Remote',
     status: 'rejected',
     statusLabel: 'Closed',
     emails: 6,
@@ -84,7 +84,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'M',
     name: 'Meridian',
-    role: 'Design Director · Remote',
+    role: 'Design Director — Remote',
     status: 'final',
     statusLabel: 'Final round',
     emails: 11,
@@ -94,7 +94,7 @@ export const COMPANIES: Company[] = [
   {
     logo: 'V',
     name: 'Vellum',
-    role: 'Senior Designer · Remote',
+    role: 'Senior Designer — Remote',
     status: 'applied',
     statusLabel: 'Applied',
     emails: 1,

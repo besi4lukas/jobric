@@ -69,14 +69,8 @@ type NavDef = {
 
 const PRIMARY_NAV: NavDef[] = [
   { view: 'overview', label: 'Overview', icon: ICON_OVERVIEW },
-  {
-    view: 'inbox',
-    label: 'Inbox',
-    icon: ICON_INBOX,
-    count: '4',
-    showDot: true,
-  },
-  { view: 'companies', label: 'Companies', icon: ICON_COMPANIES, count: '47' },
+  { view: 'inbox', label: 'Inbox', icon: ICON_INBOX },
+  { view: 'companies', label: 'Companies', icon: ICON_COMPANIES },
 ]
 
 export function Sidebar({

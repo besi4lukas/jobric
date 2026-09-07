@@ -31,25 +31,3 @@ export type Company = {
   last: string
   when: string
 }
-
-export type Stat = {
-  label: string
-  value: string
-  unit: string | null
-  trend?: string
-}
-
-export type FunnelStep = {
-  label: string
-  w: number
-  n: number
-}
-
-export type RecentActivity = {
-  logo: string
-  role: string
-  co: string
-  status: StatusKey
-  label: string
-  when: string
-}

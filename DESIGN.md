@@ -5,7 +5,9 @@
 > invariant, replaced dependency — update this file in the same change. A
 > changelog is kept at the bottom.
 
-Last updated: 2026-07-19 · reflects branch `jobric_011` @ `054c870`
+Last updated: 2026-09-09 · reflects branch `jobric_013` @ `c476f4e`, plus this
+uncommitted change (Overview trimmed to beta scope; adds the cron-triggered
+AI summary)
 
 Sections marked **⚠ Not yet wired** describe intended design that is present in
 the schema or code but not connected end-to-end. See [techdebt.md](techdebt.md)
@@ -57,6 +59,7 @@ That thesis produces four hard constraints that explain most of the architecture
    │                                                                 │
    │   fetch()      → verify JWT → REST routes / agent routing       │
    │   scheduled()  → cron every 5 min → Gmail poll                  │
+   │      ┊ (per tick, on change) → lib/overview-summary.ts ┊        │
    │   email()      → CF Email Workers ingress  (currently dead)     │
    │                                                                 │
    │   ┌──────────────┐  ┌──────────────┐                            │
@@ -72,7 +75,12 @@ That thesis produces four hard constraints that explain most of the architecture
                                     │              │  Sonnet      │
                             ┌───────▼──────┐       └──────────────┘
                             │  D1 (SQLite) │  ◄── store of record
-                            └──────────────┘
+                            └──────┬───────┘
+                                   ┊
+                                   ┊  overview summary (per tick, on change)
+                                   ┊  reads D1 ┈┈► calls Anthropic ┈┈► writes D1
+                                   ┊  (lib/overview-summary.ts — cron-triggered
+                                   ┊   only; never on the /api/overview read path)
 ```
 
 The key structural idea: **the four "agents" are Durable Objects, but only one
@@ -82,15 +90,52 @@ writes. D1, not DO-local SQLite, is the store of record.
 
 ### Component responsibilities
 
-| Component            | Owns                                                      | State |
-| -------------------- | --------------------------------------------------------- | ----- |
-| `apps/web`           | Auth UI, OAuth dance, refresh-token encryption, dashboard | none  |
-| Worker `fetch()`     | JWT verification, REST routes, agent routing              | none  |
-| Worker `scheduled()` | Gmail polling loop, watermark advancement                 | none  |
-| `EmailWatcherAgent`  | Cheap keyword pre-filter (cost gate before LLM)           | none  |
-| `ParserAgent`        | Email → structured application data (LLM)                 | none  |
-| `StatusTrackerAgent` | Prior + new status → did it change, and why (LLM)         | none  |
-| `OrchestratorAgent`  | The 6-step pipeline; **all** D1 writes                    | D1    |
+| Component                 | Owns                                                      | State                    |
+| ------------------------- | --------------------------------------------------------- | ------------------------ |
+| `apps/web`                | Auth UI, OAuth dance, refresh-token encryption, dashboard | none                     |
+| Worker `fetch()`          | JWT verification, REST routes, agent routing              | none                     |
+| Worker `scheduled()`      | Gmail polling loop, watermark advancement                 | none                     |
+| `EmailWatcherAgent`       | Cheap keyword pre-filter (cost gate before LLM)           | none                     |
+| `ParserAgent`             | Email → structured application data (LLM)                 | none                     |
+| `StatusTrackerAgent`      | Prior + new status → did it change, and why (LLM)         | none                     |
+| `OrchestratorAgent`       | The 6-step pipeline; **all** D1 writes                    | D1                       |
+| `lib/overview-summary.ts` | Per-user job-search summary (LLM), cron-triggered         | `user_summaries` (cache) |
+
+### The Overview summary
+
+Added alongside the beta trim of the Overview tab (§6, §7). A few decisions
+here are easy to get wrong by analogy with the ingestion pipeline above, so
+they're spelled out:
+
+- **Cron-coalesced, not per-email or on-read.** Generation happens once per
+  account per cron tick, and only when that tick's batch actually produced a
+  new `events` row — never inside `OrchestratorAgent`, and never on
+  `GET /api/overview`. Per-email generation would both slow ingestion (a
+  third sequential LLM call in a path that already gates the watermark) and
+  regenerate the same summary N times for a burst of N emails, discarding
+  N−1 of them. On-read generation would put an LLM call — and its latency
+  and failure modes — on the page load path, which the design otherwise
+  guarantees is guarded, cheap D1 reads (§6).
+- **A plain module, not a fifth Durable Object.** There's no state to hold
+  (inputs come from D1, output goes to D1), and a plain exported function is
+  directly callable — a DO isn't. Parser and StatusTracker are already "LLM
+  calls wearing a DO costume" (above); this doesn't add a fourth costume.
+- **Stale-while-error.** A failed generation logs and increments
+  `user_summaries.failure_count` but leaves `headline`/`body` untouched, so
+  the last good summary keeps serving through an outage (e.g. a revoked
+  Anthropic key). After 3 consecutive failures, generation is skipped
+  entirely once the underlying data stops changing, so a dead key can't cost
+  a call every tick forever.
+- **Upcoming interviews and stale applications became summary _inputs_, not
+  deleted capabilities.** The Overview tab's dedicated Upcoming and Needs-a-
+  nudge cards were cut for beta scope, but `applications.interview_at` and a
+  computed days-quiet figure are exactly what let the summary prose say "at
+  interview" or "quiet since" — see §6.
+- **Privacy.** Company names, role titles, and `events.metadata.reason`
+  sentences (already LLM-written prose from the orchestrator, step 6) go to
+  Anthropic — the same class of data the parser already sends, but a new
+  aggregate view across a user's whole application history. No message
+  bodies, no snippets, no email addresses.
 
 ---
 
@@ -231,6 +276,10 @@ users (Clerk id)
   │             ├──< events      audit trail: what changed, when, why
   │             └──< threads ──< messages    (⚠ never written — techdebt #7)
   │
+  ├──< user_summaries     1:1 per user (derived cache — safe to truncate);
+  │                         distinct from threads.summary (per-thread, still
+  │                         unwritten — techdebt #7)
+  │
   └──< parse_failures     dead letter
 ```
 
@@ -261,24 +310,57 @@ uses `interview`. `eventTypeForStatus()` in the orchestrator bridges them.
 ## 6. Known design gaps
 
 The intended architecture is coherent. The gap is that it was built as two
-halves that don't touch:
+halves that mostly don't touch — **the Overview tab is now the exception.**
+It fetches `GET /api/overview` (`apps/agents/src/routes/overview.ts`, a plain
+D1-reads handler registered ahead of `routeAgentRequest` — see §4) from
+`apps/web/src/app/dashboard/page.tsx`, so every number on that tab now traces
+to a column the pipeline actually writes, with an explicit empty state for the
+common "connected, nothing ingested yet" beta case. Inbox and Companies are
+still the disconnected half described below.
 
 ```
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
-  Gmail OAuth ✓                          Dashboard UI ✓ (mock data)
+  Gmail OAuth ✓                          Inbox / Companies UI (mock data)
   Cron poll ✓                            threads/messages tables ✓ (empty)
-  Agent pipeline ✓                       /applications endpoint ✓ (no caller)
-  D1 writes ✓
+  Agent pipeline ✓                       /applications DO endpoint (no caller —
+  D1 writes ✓                              superseded by /api/overview for the
+  Overview UI ✓ (real D1 reads)            dashboard's read path; left in place)
                     ╲                   ╱
                      ╲                 ╱
                       ▼               ▼
                    ┌───────────────────┐
                    │  THE MISSING SEAM │
-                   │  nothing reads    │
-                   │  what's written   │
+                   │  (partially closed│
+                   │  — see Overview)  │
                    └───────────────────┘
 ```
+
+Two fixes landed alongside the new route because Overview surfaced them
+immediately: `OrchestratorAgent` only wrote an `events` row when the tracker
+returned `changed: true`, which — combined with the tracker's own "only mark
+changed if status genuinely progressed" prompt — meant a brand-new
+application (`previousStatus: null`) could plausibly never get its first
+event, silently disappearing from Recent Activity. The condition is now
+`statusChange.changed || !existing`. Separately, `parsed.interviewDate` was
+parsed by the LLM and then dropped on the floor; it's now validated
+(`Date.parse`, NULL on failure) and persisted to the new
+`applications.interview_at` column, `COALESCE`d on UPDATE so a later dateless
+email can't erase a known interview date.
+
+**Overview trimmed to beta scope.** The dedicated Upcoming and Needs-a-nudge
+cards, and the "N of M got a reply" stat sub-line, are gone — replaced by "The
+story so far," a cached AI summary (see §2, "The Overview summary").
+`applications.interview_at` is retained and the orchestrator keeps writing
+it; it didn't become dead weight, it became a summary input. Two bugs were
+found and removed along the way rather than fixed in place: the deleted
+`stale` query filtered `funnel_rank BETWEEN 1 AND 3`, which silently excluded
+`offer` (rank 4) from "needs a nudge" (found in this review, not a prior
+oversight); and `pastApplied` (`SUM(funnel_rank >= 2)`) was unsound because
+`closed` is `funnel_rank` **0**, so an application that got a reply and was
+later rejected fell out of the numerator while staying in the denominator —
+deleted along with the line it fed, rather than patched, since nothing else
+depended on it.
 
 Three issues are architectural rather than merely buggy:
 
@@ -312,7 +394,9 @@ Three issues are architectural rather than merely buggy:
 
 ## 7. Changelog
 
-| Date       | Change                                                                                                                                                                                             |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-19 | Initial write-up. Documents design as-built at `054c870` on `jobric_011`.                                                                                                                          |
-| 2026-09-06 | Web security headers + report-only CSP. Landing a11y pass: focus rings, `<main>`/skip link, WCAG AA contrast, reduced-motion. Email capture field removed (leaked PII via URL, unused downstream). |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-07-19 | Initial write-up. Documents design as-built at `054c870` on `jobric_011`.                                                                                                                                                                                                                                                                                                                                                                  |
+| 2026-09-06 | Web security headers + report-only CSP. Landing a11y pass: focus rings, `<main>`/skip link, WCAG AA contrast, reduced-motion. Email capture field removed (leaked PII via URL, unused downstream).                                                                                                                                                                                                                                         |
+| 2026-09-07 | Overview tab wired to real D1 data (§6): new `GET /api/overview` route, `applications.interview_at` + `email_accounts.last_polled_at` columns (migration `0002_overview.sql`), and an `events`-write fix so a brand-new application always gets its first Recent Activity row. Mock data removed from Overview only — Inbox/Companies unchanged (techdebt #1 partially closed, #15 fixed).                                                 |
+| 2026-09-09 | Overview trimmed to beta scope: removed Upcoming/Needs-a-nudge cards and the unsound `pastApplied` stat line (§6). Added a cron-coalesced, cached AI summary card ("The story so far") backed by new `lib/overview-summary.ts` and `user_summaries` (migration `0003_overview_summary.sql`) — see §2, "The Overview summary". Middot (`·`) separators removed repo-wide from `apps/web/src` and recorded as a UI convention (`CLAUDE.md`). |
