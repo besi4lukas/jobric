@@ -4,10 +4,18 @@ import { auth } from '@clerk/nextjs/server'
 import { SignOutButton } from '@clerk/nextjs'
 import { z } from 'zod'
 import { env } from '../../env'
+import { formatShortDate, relativeTime } from '../dashboard/_lib/format'
 import './settings.css'
 
 const StatusSchema = z.discriminatedUnion('connected', [
-  z.object({ connected: z.literal(true), email: z.string().email() }),
+  z.object({
+    connected: z.literal(true),
+    email: z.string().email(),
+    // Optional so the page still renders against a Worker that predates
+    // these fields — it just omits the "since / checked" detail.
+    connectedAt: z.string().nullish(),
+    lastSyncedAt: z.string().nullish(),
+  }),
   z.object({ connected: z.literal(false) }),
 ])
 type GmailStatus = z.infer<typeof StatusSchema>
@@ -49,6 +57,7 @@ export default async function SettingsPage() {
         </header>
 
         <section className="card">
+          <WatchingLine status={status} />
           <h2>Gmail</h2>
           <p className="blurb">
             Jobric reads job-related email from your inbox to track
@@ -79,6 +88,25 @@ export default async function SettingsPage() {
         </footer>
       </main>
     </div>
+  )
+}
+
+// Moved here from the dashboard Topbar: the inbox-freshness line now lives
+// with the Gmail connection it describes, rather than on the Overview header.
+function WatchingLine({ status }: { status: GmailStatus | null }) {
+  if (!status?.connected) return null
+
+  const since = status.connectedAt ? formatShortDate(status.connectedAt) : null
+  const checked = status.lastSyncedAt ? relativeTime(status.lastSyncedAt) : null
+
+  return (
+    <p className="watching">
+      <span>
+        Watching {status.email}
+        {since && <> since {since}</>}
+      </span>
+      {checked && <span className="checked">checked {checked}</span>}
+    </p>
   )
 }
 

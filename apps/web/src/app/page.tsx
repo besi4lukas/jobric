@@ -211,14 +211,12 @@ export default function HomePage() {
                 <div className="stats-panel">
                   <div className="stats-grid">
                     <div className="stat-cell">
-                      <div className="big">
-                        47<span className="u">apps</span>
-                      </div>
-                      <div className="lbl">Tracked</div>
+                      <div className="big">47</div>
+                      <div className="lbl">Applications</div>
                     </div>
                     <div className="stat-cell">
                       <div className="big">11</div>
-                      <div className="lbl">Still Open</div>
+                      <div className="lbl">Open Applications</div>
                     </div>
                     <div className="stat-cell">
                       <div className="big">3</div>

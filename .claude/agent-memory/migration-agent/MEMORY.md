@@ -1,2 +1,3 @@
 - [Auth & DB migration](project_auth_db_migration.md) -- Supabase removed, replaced with Clerk + Cloudflare D1 (2026-04-14)
 - [Overview → D1 migration](project_overview_d1_migration.md) -- Dashboard Overview wired to real D1 data via new /api/overview route (2026-09-07); packages/shared and D1 batch() gotchas
+- [Web typography](project_web_typography.md) -- system font stack, Caveat-only webfont; --f-script ownership + CSS-is-not-prettier gotchas

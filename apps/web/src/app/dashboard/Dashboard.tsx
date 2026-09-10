@@ -8,7 +8,6 @@ import { OverviewView } from './_components/overview/OverviewView'
 import { Sidebar } from './_components/Sidebar'
 import { Topbar } from './_components/Topbar'
 import { TITLES } from './_data/titles'
-import { formatShortDate, relativeTime } from './_lib/format'
 import type { ViewKey } from './_lib/types'
 import './dashboard.css'
 
@@ -28,22 +27,6 @@ export function Dashboard({
   const [view, setView] = useState<ViewKey>('overview')
   const title = TITLES[view]
 
-  // Topbar's "Watching …" freshness label — Overview only, and only once an
-  // account is actually connected. Built here (not in Topbar, which stays
-  // dumb) because Dashboard already holds both `view` and `overview`.
-  const accountLabel =
-    view === 'overview' && overview?.account.connected
-      ? {
-          email: overview.account.email ?? '',
-          since: overview.account.connectedAt
-            ? formatShortDate(overview.account.connectedAt)
-            : null,
-          checked: overview.account.lastSyncedAt
-            ? relativeTime(overview.account.lastSyncedAt)
-            : null,
-        }
-      : null
-
   return (
     <div className="dashboard-app">
       <div className="app">
@@ -56,15 +39,11 @@ export function Dashboard({
         />
 
         <main className="main">
-          <Topbar
-            title={title.h}
-            subtitle={title.s}
-            accountLabel={accountLabel}
-          />
+          <Topbar title={title.h} subtitle={title.s} />
           <div className="content">
             {view === 'overview' && <OverviewView overview={overview} />}
             {view === 'inbox' && <InboxView />}
-            {view === 'companies' && <CompaniesView />}
+            {view === 'applications' && <CompaniesView />}
           </div>
         </main>
       </div>
