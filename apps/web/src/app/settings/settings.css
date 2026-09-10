@@ -1,0 +1,195 @@
+/* Settings shares the dashboard's paper palette. The palette is already
+   global — `:root` in landing.css (imported by the root layout) plus the
+   next/font variables on <html> — so the tokens are used directly rather
+   than redeclared. Only the few that would otherwise differ from
+   dashboard.css are overridden below. */
+
+.settings-page {
+  /* :root and dashboard.css hold different values for these two; take the
+     dashboard's so the two surfaces match exactly. */
+  --ink-mute: #8a7866;
+  --radius-sm: 10px;
+  /* Dashboard-only token, absent from :root. */
+  --line-2: #c8b894;
+
+  min-height: 100vh;
+  background: var(--paper-2);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.settings-page *,
+.settings-page *::before,
+.settings-page *::after {
+  box-sizing: border-box;
+}
+
+.settings-page .settings-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 32px 64px;
+}
+
+/* ============ HEADER ============ */
+.settings-page .settings-head {
+  margin-bottom: 28px;
+}
+.settings-page .back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-mute);
+  text-decoration: none;
+  font-size: 13.5px;
+  transition: color 0.12s ease;
+}
+.settings-page .back-link:hover {
+  color: var(--accent);
+}
+.settings-page .back-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.settings-page h1 {
+  margin: 10px 0 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+/* ============ CARD ============ */
+.settings-page .card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+.settings-page .card h2 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+.settings-page .card .blurb {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+/* ============ CONNECTION STATUS ============ */
+.settings-page .status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+.settings-page .status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-mute);
+}
+.settings-page .status.is-connected .dot {
+  background: var(--ok);
+}
+.settings-page .status .addr {
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.settings-page .status .muted {
+  color: var(--ink-mute);
+}
+
+/* ============ FLASH ============ */
+.settings-page .flash {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  /* No dedicated error token in the palette; the accent is already the
+     warm alarm colour used for emphasis across the dashboard. */
+  background: rgba(184, 84, 42, 0.1);
+  border: 1px solid rgba(184, 84, 42, 0.28);
+  color: var(--accent);
+  font-size: 14px;
+}
+
+/* ============ ACTIONS ============ */
+.settings-page .card-actions {
+  margin-top: 22px;
+}
+.settings-page .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.settings-page .btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.settings-page .btn-primary {
+  background: var(--plate);
+  color: var(--plate-ink);
+}
+.settings-page .btn-primary:hover {
+  background: var(--ink-soft);
+}
+.settings-page .btn-ghost {
+  background: transparent;
+  border-color: var(--line-2);
+  color: var(--ink-soft);
+}
+.settings-page .btn-ghost:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ============ FOOTER ============ */
+.settings-page .settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.settings-page .settings-footer .note {
+  color: var(--ink-mute);
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .settings-page .settings-wrap {
+    padding: 28px 20px 48px;
+  }
+  .settings-page .settings-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
