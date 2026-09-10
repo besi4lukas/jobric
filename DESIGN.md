@@ -5,9 +5,9 @@
 > invariant, replaced dependency — update this file in the same change. A
 > changelog is kept at the bottom.
 
-Last updated: 2026-09-09 · reflects branch `jobric_013` @ `c476f4e`, plus this
-uncommitted change (Overview trimmed to beta scope; adds the cron-triggered
-AI summary)
+Last updated: 2026-09-10 · reflects branch `jobric_013` @ `c476f4e`, plus this
+uncommitted change (sign-out feature: dashboard account menu + `/settings`
+sign-out button)
 
 Sections marked **⚠ Not yet wired** describe intended design that is present in
 the schema or code but not connected end-to-end. See [techdebt.md](techdebt.md)
@@ -175,6 +175,31 @@ filter that could be buggy; it is an invariant of the API contract.
 Worker only decrypts. Both sides must share the same base64 32-byte key, and the
 wire format is `base64( iv || ciphertext+tag )` with a 12-byte IV. The Worker
 deliberately exposes no `encrypt()`.
+
+### Session termination (sign-out)
+
+Signing out ends the Clerk browser session; it does **not** touch the Gmail
+connection. Auth (Clerk) and inbox integration (Gmail) are deliberately
+separate flows — the encrypted `refresh_token` in `email_accounts` and the
+cron ingestion loop survive a sign-out untouched, so the user's tracker keeps
+building even while signed out, and reconnecting Gmail is never a re-consent
+step required just to log back in.
+
+Two entry points call Clerk's `signOut()`/`<SignOutButton>` client-side, both
+landing on `/` (`afterSignOutUrl` on `<ClerkProvider>` is the same fallback,
+for sign-out paths this app doesn't control — the Clerk account portal, or a
+session revoked elsewhere):
+
+- The dashboard sidebar's account menu (`UserMenu`, replacing the old static
+  `.side-footer`) — the primary path.
+- A "Sign out" button on `/settings` — a server component; `<SignOutButton>`
+  is safe to use there because it renders its own client-side handler without
+  requiring the page itself to be a client component.
+
+This is purely a browser-session concern: the Worker's `verifyToken()` is
+networkless with a 60s JWT TTL, so there is no server-side session to revoke
+on sign-out — a signed-out client simply stops holding a valid JWT to send.
+No Worker change was needed.
 
 ---
 
@@ -394,9 +419,10 @@ Three issues are architectural rather than merely buggy:
 
 ## 7. Changelog
 
-| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-07-19 | Initial write-up. Documents design as-built at `054c870` on `jobric_011`.                                                                                                                                                                                                                                                                                                                                                                  |
-| 2026-09-06 | Web security headers + report-only CSP. Landing a11y pass: focus rings, `<main>`/skip link, WCAG AA contrast, reduced-motion. Email capture field removed (leaked PII via URL, unused downstream).                                                                                                                                                                                                                                         |
-| 2026-09-07 | Overview tab wired to real D1 data (§6): new `GET /api/overview` route, `applications.interview_at` + `email_accounts.last_polled_at` columns (migration `0002_overview.sql`), and an `events`-write fix so a brand-new application always gets its first Recent Activity row. Mock data removed from Overview only — Inbox/Companies unchanged (techdebt #1 partially closed, #15 fixed).                                                 |
-| 2026-09-09 | Overview trimmed to beta scope: removed Upcoming/Needs-a-nudge cards and the unsound `pastApplied` stat line (§6). Added a cron-coalesced, cached AI summary card ("The story so far") backed by new `lib/overview-summary.ts` and `user_summaries` (migration `0003_overview_summary.sql`) — see §2, "The Overview summary". Middot (`·`) separators removed repo-wide from `apps/web/src` and recorded as a UI convention (`CLAUDE.md`). |
+| Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-19 | Initial write-up. Documents design as-built at `054c870` on `jobric_011`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-09-06 | Web security headers + report-only CSP. Landing a11y pass: focus rings, `<main>`/skip link, WCAG AA contrast, reduced-motion. Email capture field removed (leaked PII via URL, unused downstream).                                                                                                                                                                                                                                                                                                                                             |
+| 2026-09-07 | Overview tab wired to real D1 data (§6): new `GET /api/overview` route, `applications.interview_at` + `email_accounts.last_polled_at` columns (migration `0002_overview.sql`), and an `events`-write fix so a brand-new application always gets its first Recent Activity row. Mock data removed from Overview only — Inbox/Companies unchanged (techdebt #1 partially closed, #15 fixed).                                                                                                                                                     |
+| 2026-09-09 | Overview trimmed to beta scope: removed Upcoming/Needs-a-nudge cards and the unsound `pastApplied` stat line (§6). Added a cron-coalesced, cached AI summary card ("The story so far") backed by new `lib/overview-summary.ts` and `user_summaries` (migration `0003_overview_summary.sql`) — see §2, "The Overview summary". Middot (`·`) separators removed repo-wide from `apps/web/src` and recorded as a UI convention (`CLAUDE.md`).                                                                                                     |
+| 2026-09-10 | Sign-out implemented (§3, "Session termination"). New `UserMenu` accessible dropdown (`apps/web/src/app/dashboard/_components/UserMenu.tsx`) replaces the static sidebar `.side-footer`, calling `useClerk().signOut({ redirectUrl: '/' })`. A second `<SignOutButton redirectUrl="/">` entry point was added to `/settings`. `<ClerkProvider afterSignOutUrl="/">` added as a fallback for sign-out paths this app doesn't initiate. Gmail connection and `apps/agents` untouched by design — auth and inbox integration stay separate flows. |

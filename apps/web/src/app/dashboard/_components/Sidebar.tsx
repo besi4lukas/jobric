@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { ViewKey } from '../_lib/types'
+import { UserMenu } from './UserMenu'
 
 const ICON_OVERVIEW = (
   <svg
@@ -110,13 +111,11 @@ export function Sidebar({
         <span>Settings</span>
       </Link>
 
-      <div className="side-footer">
-        <div className="avatar">{userInitial}</div>
-        <div className="who">
-          {userName}
-          <small>{userEmail}</small>
-        </div>
-      </div>
+      <UserMenu
+        userName={userName}
+        userEmail={userEmail}
+        userInitial={userInitial}
+      />
     </aside>
   )
 }

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
+import { SignOutButton } from '@clerk/nextjs'
 import { z } from 'zod'
 import { env } from '../../env'
 
@@ -95,6 +96,33 @@ export default async function SettingsPage() {
           </a>
         </div>
       </section>
+
+      <footer
+        style={{
+          marginTop: '2rem',
+          paddingTop: '1.5rem',
+          borderTop: '1px solid #e5e5e5',
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <SignOutButton redirectUrl="/">
+          <button
+            type="button"
+            style={{
+              padding: '0.6rem 1rem',
+              background: '#fff',
+              color: '#111',
+              border: '1px solid #d4d4d4',
+              borderRadius: '6px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Sign out
+          </button>
+        </SignOutButton>
+      </footer>
     </main>
   )
 }
