@@ -87,15 +87,28 @@ export async function handleEmailAccountStatus(
   }
 
   const row = await env.DB.prepare(
-    `SELECT email FROM email_accounts WHERE user_id = ? LIMIT 1`,
+    `SELECT email, created_at, last_polled_at
+       FROM email_accounts WHERE user_id = ? LIMIT 1`,
   )
     .bind(userId)
-    .first<{ email: string }>()
+    .first<{
+      email: string
+      created_at: string | null
+      last_polled_at: string | null
+    }>()
 
   if (!row) {
     return Response.json({ connected: false })
   }
-  return Response.json({ connected: true, email: row.email })
+  // connectedAt/lastSyncedAt back the Settings page "Watching …" line.
+  // Both columns already exist (migration 0002), so no migration is needed —
+  // but the Worker must be redeployed for these fields to appear.
+  return Response.json({
+    connected: true,
+    email: row.email,
+    connectedAt: row.created_at,
+    lastSyncedAt: row.last_polled_at,
+  })
 }
 
 function log(message: string, data?: unknown) {

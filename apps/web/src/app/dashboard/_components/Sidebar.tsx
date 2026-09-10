@@ -31,7 +31,10 @@ const ICON_INBOX = (
   </svg>
 )
 
-const ICON_COMPANIES = (
+// Briefcase: the conventional glyph for job applications. The previous
+// divided square read as a generic grid and collided visually with
+// ICON_OVERVIEW, which is also a rectangle arrangement, at 16px.
+const ICON_APPLICATIONS = (
   <svg
     width="16"
     height="16"
@@ -39,9 +42,12 @@ const ICON_COMPANIES = (
     fill="none"
     stroke="currentColor"
     strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
   >
-    <rect x="4" y="4" width="16" height="16" rx="2" />
-    <path d="M4 10h16M10 4v16" />
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7" />
+    <path d="M3 12.5h18" />
   </svg>
 )
 
@@ -56,7 +62,7 @@ type NavDef = {
 const PRIMARY_NAV: NavDef[] = [
   { view: 'overview', label: 'Overview', icon: ICON_OVERVIEW },
   { view: 'inbox', label: 'AI Inbox', icon: ICON_INBOX },
-  { view: 'companies', label: 'Applications', icon: ICON_COMPANIES },
+  { view: 'applications', label: 'Applications', icon: ICON_APPLICATIONS },
 ]
 
 export function Sidebar({

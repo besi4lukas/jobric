@@ -1,4 +1,4 @@
-export type ViewKey = 'overview' | 'inbox' | 'companies'
+export type ViewKey = 'overview' | 'inbox' | 'applications'
 
 export type StatusKey =
   | 'applied'
