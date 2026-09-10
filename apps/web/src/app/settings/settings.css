@@ -57,10 +57,10 @@
 .settings-page h1 {
   margin: 10px 0 0;
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 34px;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
 }
 
 /* ============ CARD ============ */
@@ -73,9 +73,9 @@
 .settings-page .card h2 {
   margin: 0;
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 21px;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
 }
 .settings-page .card .blurb {
   margin: 8px 0 0;
