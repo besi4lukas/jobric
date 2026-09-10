@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { auth } from '@clerk/nextjs/server'
+import { SignOutButton } from '@clerk/nextjs'
 import { z } from 'zod'
 import { env } from '../../env'
+import './settings.css'
 
 const StatusSchema = z.discriminatedUnion('connected', [
   z.object({ connected: z.literal(true), email: z.string().email() }),
@@ -24,9 +26,11 @@ export default async function SettingsPage() {
   const { userId, getToken } = await auth()
   if (!userId) {
     return (
-      <main style={{ padding: '2rem' }}>
-        <p>Please sign in.</p>
-      </main>
+      <div className="settings-page">
+        <div className="settings-wrap">
+          <p>Please sign in.</p>
+        </div>
+      </div>
     )
   }
 
@@ -34,85 +38,72 @@ export default async function SettingsPage() {
   const flashMessage = await readFlashMessage()
 
   return (
-    <main
-      style={{
-        padding: '2.5rem',
-        maxWidth: '640px',
-        margin: '0 auto',
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <header style={{ marginBottom: '2rem' }}>
-        <Link href="/dashboard" style={{ color: '#666', fontSize: '0.9rem' }}>
-          ← Back to dashboard
-        </Link>
-        <h1 style={{ marginTop: '0.5rem' }}>Settings</h1>
-      </header>
+    <div className="settings-page">
+      <main className="settings-wrap">
+        <header className="settings-head">
+          <Link href="/dashboard" className="back-link">
+            <span aria-hidden="true">←</span>
+            <span>Back to dashboard</span>
+          </Link>
+          <h1>Settings</h1>
+        </header>
 
-      <section
-        style={{
-          border: '1px solid #e5e5e5',
-          borderRadius: '8px',
-          padding: '1.5rem',
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>Gmail</h2>
-        <p style={{ color: '#555' }}>
-          Jobric reads job-related email from your inbox to track applications.
-          Read-only access. We never send, modify, or delete email.
-        </p>
-
-        <ConnectionStatus status={status} />
-
-        {flashMessage && (
-          <p
-            style={{
-              marginTop: '1rem',
-              padding: '0.75rem',
-              background: '#fef2f2',
-              color: '#991b1b',
-              borderRadius: '6px',
-            }}
-          >
-            {flashMessage}
+        <section className="card">
+          <h2>Gmail</h2>
+          <p className="blurb">
+            Jobric reads job-related email from your inbox to track
+            applications. Read-only access. We never send, modify, or delete
+            email.
           </p>
-        )}
 
-        <div style={{ marginTop: '1.5rem' }}>
-          <a
-            href="/api/gmail/connect"
-            style={{
-              display: 'inline-block',
-              padding: '0.6rem 1rem',
-              background: '#111',
-              color: '#fff',
-              borderRadius: '6px',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
-          >
-            {status?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
-          </a>
-        </div>
-      </section>
-    </main>
+          <ConnectionStatus status={status} />
+
+          {flashMessage && <p className="flash">{flashMessage}</p>}
+
+          <div className="card-actions">
+            <a href="/api/gmail/connect" className="btn btn-primary">
+              {status?.connected ? 'Reconnect Gmail' : 'Connect Gmail'}
+            </a>
+          </div>
+        </section>
+
+        <footer className="settings-footer">
+          <span className="note">
+            Signing out leaves your Gmail connection in place.
+          </span>
+          <SignOutButton redirectUrl="/">
+            <button type="button" className="btn btn-ghost">
+              Sign out
+            </button>
+          </SignOutButton>
+        </footer>
+      </main>
+    </div>
   )
 }
 
 function ConnectionStatus({ status }: { status: GmailStatus | null }) {
   if (status === null) {
-    return <p style={{ color: '#888' }}>Could not load connection status.</p>
+    return (
+      <p className="status">
+        <span className="dot" aria-hidden="true" />
+        <span className="muted">Could not load connection status.</span>
+      </p>
+    )
   }
   if (status.connected) {
     return (
-      <p style={{ marginTop: '1rem' }}>
-        <strong>Connected:</strong> {status.email}
+      <p className="status is-connected">
+        <span className="dot" aria-hidden="true" />
+        <span>Connected</span>
+        <span className="addr">{status.email}</span>
       </p>
     )
   }
   return (
-    <p style={{ marginTop: '1rem', color: '#666' }}>
-      No Gmail account connected yet.
+    <p className="status">
+      <span className="dot" aria-hidden="true" />
+      <span className="muted">No Gmail account connected yet.</span>
     </p>
   )
 }

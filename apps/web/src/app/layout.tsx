@@ -59,7 +59,7 @@ export default function RootLayout({
       className={`${instrumentSerif.variable} ${newsreader.variable} ${jetBrainsMono.variable} ${caveat.variable}`}
     >
       <body>
-        <ClerkProvider>{children}</ClerkProvider>
+        <ClerkProvider afterSignOutUrl="/">{children}</ClerkProvider>
       </body>
     </html>
   )

@@ -157,13 +157,32 @@
   transform: translateY(-50%);
 }
 
-.dashboard-app .side-footer {
+.dashboard-app .user-menu {
   margin-top: auto;
+  position: relative;
+}
+.dashboard-app .side-footer {
   padding: 14px 10px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-top: 1px solid var(--line);
+}
+.dashboard-app .user-menu-trigger {
+  width: 100%;
+  border-radius: 10px;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.dashboard-app .user-menu-trigger:hover {
+  background: var(--paper-2);
+}
+.dashboard-app .user-menu-trigger[aria-expanded='true'] {
+  background: var(--paper-2);
+}
+.dashboard-app .user-menu-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .dashboard-app .avatar {
   width: 34px;
@@ -178,6 +197,7 @@
   font-size: 17px;
 }
 .dashboard-app .side-footer .who {
+  display: block;
   font-size: 13.5px;
   line-height: 1.2;
 }
@@ -186,6 +206,66 @@
   color: var(--ink-mute);
   font-size: 11.5px;
   font-family: var(--f-mono);
+}
+
+.dashboard-app .user-menu-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 30px rgba(43, 34, 27, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 20;
+}
+.dashboard-app .user-menu-header {
+  padding: 8px 10px 6px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  overflow-wrap: break-word;
+}
+.dashboard-app .user-menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.dashboard-app .user-menu-item .ic {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mute);
+}
+.dashboard-app .user-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}
+.dashboard-app .user-menu-item:hover:not(:disabled) {
+  background: var(--paper-2);
+}
+.dashboard-app .user-menu-item:disabled {
+  color: var(--ink-mute);
+  cursor: default;
+}
+.dashboard-app .user-menu-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* ============ MAIN ============ */

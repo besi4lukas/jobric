@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import type { ViewKey } from '../_lib/types'
+import { UserMenu } from './UserMenu'
 
 const ICON_OVERVIEW = (
   <svg
@@ -45,20 +45,6 @@ const ICON_COMPANIES = (
   </svg>
 )
 
-const ICON_SETTINGS = (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-  >
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
-  </svg>
-)
-
 type NavDef = {
   view: ViewKey
   label: string
@@ -69,8 +55,8 @@ type NavDef = {
 
 const PRIMARY_NAV: NavDef[] = [
   { view: 'overview', label: 'Overview', icon: ICON_OVERVIEW },
-  { view: 'inbox', label: 'Inbox', icon: ICON_INBOX },
-  { view: 'companies', label: 'Companies', icon: ICON_COMPANIES },
+  { view: 'inbox', label: 'AI Inbox', icon: ICON_INBOX },
+  { view: 'companies', label: 'Applications', icon: ICON_COMPANIES },
 ]
 
 export function Sidebar({
@@ -105,18 +91,11 @@ export function Sidebar({
         />
       ))}
 
-      <Link href="/settings" className="nav-item">
-        <span className="ic">{ICON_SETTINGS}</span>
-        <span>Settings</span>
-      </Link>
-
-      <div className="side-footer">
-        <div className="avatar">{userInitial}</div>
-        <div className="who">
-          {userName}
-          <small>{userEmail}</small>
-        </div>
-      </div>
+      <UserMenu
+        userName={userName}
+        userEmail={userEmail}
+        userInitial={userInitial}
+      />
     </aside>
   )
 }
