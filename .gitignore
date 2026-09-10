@@ -46,3 +46,7 @@ yarn-error.log*
 .agents/
 .claude/skills/
 skills-lock.json
+
+# Agent worktrees (throwaway checkouts created by Claude Code; a full copy of
+# the repo lives here, so leaving it tracked also breaks repo-wide tooling globs)
+.claude/worktrees/
