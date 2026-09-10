@@ -14,6 +14,22 @@
 
   --radius: 14px;
   --radius-sm: 8px;
+
+  /* Typography — single source of truth for the whole web app.
+     Body, display and mono render in the viewer's own OS UI font, so the
+     app reads as native on every platform and costs zero font requests.
+     Only --f-script loads a webfont (Caveat, via next/font in layout.tsx). */
+  --f-ui:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --f-body: var(--f-ui);
+  --f-display: var(--f-ui);
+  --f-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Cascadia Mono",
+    monospace;
+  /* --f-script is intentionally NOT defined here. next/font sets it on <html>
+     with its own generated family name; redeclaring it on :root would collide
+     at equal specificity and break the webfont. See layout.tsx. */
 }
 
 *,
@@ -55,10 +71,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--f-body);
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
   overflow-x: hidden;
   min-height: 100vh;
   position: relative;
@@ -206,16 +220,15 @@ body {
 
 .landing h1.display {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 800;
   font-size: clamp(54px, 8vw, 112px);
-  line-height: 0.98;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  letter-spacing: -0.035em;
   margin: 22px 0 20px;
   color: var(--ink);
   text-wrap: balance;
 }
 .landing h1.display .ital {
-  font-style: italic;
   color: var(--accent);
 }
 .landing h1.display .under {
@@ -317,10 +330,12 @@ body {
 }
 .landing .v1-letter .subj {
   font-family: var(--f-display);
+  font-weight: 700;
   font-size: 20px;
+  letter-spacing: -0.015em;
   color: var(--ink);
   margin: 10px 0 12px;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 .landing .v1-letter .body-lines div {
   height: 7px;
@@ -407,6 +422,7 @@ body {
   align-items: center;
   justify-content: center;
   font-family: var(--f-display);
+  font-weight: 600;
   font-size: 20px;
   color: var(--ink);
 }
@@ -493,15 +509,15 @@ body {
 }
 .landing .section h2 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: clamp(40px, 5.5vw, 68px);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
   margin: 0;
   text-wrap: balance;
 }
 .landing .section h2 em {
-  font-style: italic;
+  font-style: normal;
   color: var(--accent);
 }
 .landing .section .sub {
@@ -541,16 +557,19 @@ body {
 }
 .landing .step .num {
   font-family: var(--f-display);
-  font-style: italic;
+  font-weight: 800;
   font-size: 64px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
   color: var(--accent);
   line-height: 1;
   margin-bottom: 16px;
 }
 .landing .step h3 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 28px;
+  letter-spacing: -0.02em;
   margin: 0 0 8px;
 }
 .landing .step p {
@@ -692,7 +711,10 @@ body {
 }
 .landing .stat-cell .big {
   font-family: var(--f-display);
+  font-weight: 700;
   font-size: 44px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--ink);
 }
@@ -722,7 +744,7 @@ body {
 }
 .landing .funnel h3 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 22px;
   margin: 0 0 14px;
 }
@@ -769,7 +791,7 @@ body {
 }
 .landing .pipe-head h3 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 22px;
   margin: 0;
 }
@@ -812,6 +834,7 @@ body {
   align-items: center;
   justify-content: center;
   font-family: var(--f-display);
+  font-weight: 600;
   color: var(--ink);
   font-size: 20px;
 }
@@ -872,14 +895,15 @@ body {
 }
 .landing .privacy h2 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: clamp(40px, 5vw, 58px);
-  line-height: 1.02;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
   margin: 18px 0 20px;
   color: var(--paper);
 }
 .landing .privacy h2 em {
-  font-style: italic;
+  font-style: normal;
   color: var(--accent-2);
 }
 .landing .privacy .sub {
@@ -915,7 +939,7 @@ body {
 }
 .landing .p-card h3 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 700;
   font-size: 20px;
   margin: 0 0 4px;
   color: var(--paper);
@@ -938,15 +962,15 @@ body {
 }
 .landing .close h2 {
   font-family: var(--f-display);
-  font-weight: 400;
+  font-weight: 800;
   font-size: clamp(44px, 7vw, 92px);
-  line-height: 1.02;
-  letter-spacing: -0.01em;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
   margin: 10px 0 24px;
   text-wrap: balance;
 }
 .landing .close h2 em {
-  font-style: italic;
+  font-style: normal;
   color: var(--accent);
 }
 .landing .close .lede {
