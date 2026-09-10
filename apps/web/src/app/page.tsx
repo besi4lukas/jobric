@@ -199,9 +199,8 @@ export default function HomePage() {
               <div className="dash-top">
                 <div className="tabs">
                   <span className="active">Overview</span>
+                  <span>AI Inbox</span>
                   <span>Applications</span>
-                  <span>Timeline</span>
-                  <span>Reminders</span>
                 </div>
               </div>
               <p className="dash-caption">
@@ -215,25 +214,15 @@ export default function HomePage() {
                       <div className="big">
                         47<span className="u">apps</span>
                       </div>
-                      <div className="lbl">Applications</div>
-                      <div className="trend">↑ 6 this week</div>
+                      <div className="lbl">Tracked</div>
                     </div>
                     <div className="stat-cell">
                       <div className="big">11</div>
-                      <div className="lbl">Interviewing</div>
-                      <div className="trend">↑ 2 this week</div>
-                    </div>
-                    <div className="stat-cell">
-                      <div className="big">
-                        28<span className="u">%</span>
-                      </div>
-                      <div className="lbl">Response rate</div>
-                      <div className="trend">vs. 19% avg</div>
+                      <div className="lbl">Still Open</div>
                     </div>
                     <div className="stat-cell">
                       <div className="big">3</div>
-                      <div className="lbl">Offers</div>
-                      <div className="trend">2 active</div>
+                      <div className="lbl">Interviewing or Better</div>
                     </div>
                   </div>
 

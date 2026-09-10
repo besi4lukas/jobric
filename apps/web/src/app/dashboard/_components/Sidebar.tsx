@@ -78,7 +78,6 @@ export function Sidebar({
         <span className="plate">Jobric</span>
       </div>
 
-      <div className="side-label">Your search</div>
       {PRIMARY_NAV.map((item) => (
         <SideNavItem
           key={item.view}
