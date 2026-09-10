@@ -199,7 +199,7 @@ export default function HomePage() {
               <div className="dash-top">
                 <div className="tabs">
                   <span className="active">Overview</span>
-                  <span>Companies</span>
+                  <span>Applications</span>
                   <span>Timeline</span>
                   <span>Reminders</span>
                 </div>

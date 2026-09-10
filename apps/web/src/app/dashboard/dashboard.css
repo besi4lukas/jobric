@@ -234,11 +234,27 @@
 }
 .dashboard-app .user-menu-item {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   padding: 9px 10px;
   border-radius: 8px;
   font-size: 13.5px;
   color: var(--ink);
+}
+.dashboard-app .user-menu-item .ic {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mute);
+}
+.dashboard-app .user-menu-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
 }
 .dashboard-app .user-menu-item:hover:not(:disabled) {
   background: var(--paper-2);
