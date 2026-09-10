@@ -8,7 +8,7 @@
     "check-types": "tsc --noEmit",
     "cf-typegen": "wrangler types",
     "migrate:local": "wrangler d1 migrations apply jobric-db --local",
-    "migrate:prod": "wrangler d1 migrations apply jobric-db"
+    "migrate:prod": "wrangler d1 migrations apply jobric-db --remote"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",

@@ -11,17 +11,34 @@ pnpm dev             # Start all dev servers concurrently
 pnpm lint            # Lint all workspaces
 pnpm format          # Format with Prettier (*.ts, *.tsx, *.md)
 pnpm check-types     # Type-check all workspaces
+pnpm test            # Run tests (vitest)
 
-# Filter to a specific app or package
-pnpm turbo build --filter=web
-pnpm turbo dev --filter=agents
+# Filter to a specific app or package.
+# Turbo matches PACKAGE names, not directory names — `--filter=agents` fails
+# with "No package found with name 'agents' in workspace".
+pnpm turbo build --filter=@jobric/web
+pnpm turbo dev --filter=@jobric/agents
 pnpm turbo lint --filter=@repo/ui
 
-# Cloudflare Agents
-pnpm turbo deploy --filter=agents   # Deploy agents to Cloudflare
+# Cloudflare Agents — D1 migrations
+pnpm --filter=@jobric/agents migrate:local   # apply to local miniflare D1
+pnpm --filter=@jobric/agents migrate:prod    # apply to remote D1
+
+# Cloudflare Agents — deploy
+pnpm turbo deploy --filter=@jobric/agents
 ```
 
-There is no test runner configured yet.
+Package names: `@jobric/web`, `@jobric/agents`, `@jobric/shared`, `@repo/ui`,
+`@repo/eslint-config`, `@repo/typescript-config`.
+
+**Always run `migrate:prod` before deploying a Worker that reads a new column
+or table.** Nothing sequences this automatically (techdebt #20), and CI only
+migrates `--local`. Deploying first means every `pollAccount()` throws on the
+missing column, the watermark never advances, and ingestion halts silently for
+every user — `cron.ts` swallows per-account failures.
+
+Test coverage is thin — only `@jobric/shared` defines a `test` script. `apps/web`
+and `apps/agents` have none (techdebt #17).
 
 ## Architecture
 
