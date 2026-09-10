@@ -1,25 +1,35 @@
-import { STATS } from '../../_data/overview'
-import type { Stat } from '../../_lib/types'
+type Counts = {
+  tracked: number
+  open: number
+  active: number
+}
 
-export function StatsGrid() {
+export function StatsGrid({ counts }: { counts: Counts }) {
   return (
     <div className="grid-stats">
-      {STATS.map((s) => (
-        <StatCard key={s.label} stat={s} />
-      ))}
+      <StatCard label="Tracked" value={counts.tracked} unit="apps" />
+      <StatCard label="Still open" value={counts.open} />
+      <StatCard label="Interviewing or better" value={counts.active} />
     </div>
   )
 }
 
-function StatCard({ stat }: { stat: Stat }) {
+function StatCard({
+  label,
+  value,
+  unit,
+}: {
+  label: string
+  value: number
+  unit?: string
+}) {
   return (
     <div className="stat">
-      <div className="l">{stat.label}</div>
+      <div className="l">{label}</div>
       <div className="n">
-        {stat.value}
-        {stat.unit && <span className="u">{stat.unit}</span>}
+        {value}
+        {unit && <span className="u">{unit}</span>}
       </div>
-      {stat.trend && <div className="t">{stat.trend}</div>}
     </div>
   )
 }

@@ -88,20 +88,27 @@ export class OrchestratorAgent extends Agent<Env> {
       const funnelRank = funnelRankFor(newStatus)
       const applicationId = existing?.id ?? crypto.randomUUID()
 
+      // parsed.interviewDate is free text from an LLM. Validate before
+      // storing — garbage would otherwise sort to the top of the Upcoming
+      // card. Store NULL when unparseable.
+      const interviewAt = parseInterviewDate(parsed.interviewDate)
+
       if (existing) {
         await this.env.DB.prepare(
           `UPDATE applications
-             SET status = ?, funnel_rank = ?, last_activity_at = ?
+             SET status = ?, funnel_rank = ?, last_activity_at = ?,
+                 interview_at = COALESCE(?, interview_at)
            WHERE id = ?`,
         )
-          .bind(newStatus, funnelRank, now, applicationId)
+          .bind(newStatus, funnelRank, now, interviewAt, applicationId)
           .run()
       } else {
         await this.env.DB.prepare(
           `INSERT INTO applications
              (id, user_id, company_id, role_title, requisition_id,
-              status, funnel_rank, first_contact_at, last_activity_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              status, funnel_rank, first_contact_at, last_activity_at,
+              interview_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
           .bind(
             applicationId,
@@ -113,12 +120,17 @@ export class OrchestratorAgent extends Agent<Env> {
             funnelRank,
             now,
             now,
+            interviewAt,
           )
           .run()
       }
 
       // ── Step 6: Record the event when status changed ──────────────────────
-      if (statusChange.changed) {
+      // Also fires for a brand-new application even when the tracker returns
+      // changed=false — "nothing progressed" is a defensible LLM answer when
+      // previousStatus is null, but it means a first sighting would otherwise
+      // never land in `events` and Recent Activity would silently skip it.
+      if (statusChange.changed || !existing) {
         await this.env.DB.prepare(
           `INSERT INTO events
              (id, user_id, application_id, event_type, occurred_at,
@@ -133,7 +145,7 @@ export class OrchestratorAgent extends Agent<Env> {
             now,
             JSON.stringify({
               reason: statusChange.reason,
-              previousStatus: statusChange.previousStatus,
+              previousStatus: existing ? statusChange.previousStatus : null,
             }),
           )
           .run()
@@ -261,4 +273,22 @@ export class OrchestratorAgent extends Agent<Env> {
 // event_type uses 'interview' (singular); application_status uses 'interviewing'.
 function eventTypeForStatus(status: ApplicationStatus): EventType {
   return status === 'interviewing' ? 'interview' : status
+}
+
+// Inverse of eventTypeForStatus() — for rendering transition lines like
+// "replied → interviewing" from a stored event_type back to the application
+// status it corresponds to.
+export function statusForEventType(eventType: EventType): ApplicationStatus {
+  return eventType === 'interview' ? 'interviewing' : eventType
+}
+
+// parsed.interviewDate is free text from an LLM (ParsedApplicationSchema.
+// interviewDate is z.string().optional(), not a validated date). Returns a
+// normalized ISO-8601 string, or null when absent/unparseable so garbage
+// never lands in interview_at.
+function parseInterviewDate(value: string | undefined): string | null {
+  if (!value) return null
+  const parsed = Date.parse(value)
+  if (Number.isNaN(parsed)) return null
+  return new Date(parsed).toISOString()
 }

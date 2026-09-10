@@ -29,7 +29,7 @@ function ThreadRow({ thread }: { thread: Thread }) {
         <div className="foot">
           <StatusPill status={thread.status}>{thread.statusLabel}</StatusPill>
           <span className="count">
-            · {thread.messages} message{thread.messages === 1 ? '' : 's'}
+            {thread.messages} message{thread.messages === 1 ? '' : 's'}
           </span>
         </div>
       </div>
