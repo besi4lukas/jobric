@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { OverviewResponse } from './page'
+import type { OverviewResponse } from './_lib/overview-schema'
 import { CompaniesView } from './_components/companies/CompaniesView'
 import { InboxView } from './_components/inbox/InboxView'
 import { OverviewView } from './_components/overview/OverviewView'

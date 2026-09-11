@@ -16,14 +16,15 @@ import { ApplicationStatusSchema, EventTypeSchema } from '../db/schema'
 const STATUS_ORDER = ApplicationStatusSchema.options
 
 // `summary` is required here (Worker side) but `.optional()` with a default
-// on the web side (apps/web/.../dashboard/page.tsx) — deliberately
-// asymmetric, do not "fix" this by making them match. Zod strips unknown
-// keys, so an old deployed web app parsing a NEW worker's response (which
-// always includes `summary`) is unaffected either way; but a NEW web app
-// parsing an OLD worker's response (which lacks `summary` entirely, e.g.
-// mid-deploy) would throw on a required field and blank the whole page.
+// on the web side (apps/web/.../dashboard/_lib/overview-schema.ts) —
+// deliberately asymmetric, do not "fix" this by making them match. Zod
+// strips unknown keys, so an old deployed web app parsing a NEW worker's
+// response (which always includes `summary`) is unaffected either way; but
+// a NEW web app parsing an OLD worker's response (which lacks `summary`
+// entirely, e.g. mid-deploy) would throw on a required field and blank the
+// whole page.
 // Requiring it here keeps the Worker's own contract honest; defaulting it
-// web-side is what makes that transition survivable. See page.tsx.
+// web-side is what makes that transition survivable. See overview-schema.ts.
 const OverviewResponseSchema = z.object({
   account: z.object({
     connected: z.boolean(),
