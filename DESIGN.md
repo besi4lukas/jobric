@@ -340,9 +340,10 @@ The intended architecture is coherent. The gap is that it was built as two
 halves that mostly don't touch — **the Overview tab is now the exception.**
 It fetches `GET /api/overview` (`apps/agents/src/routes/overview.ts`, a plain
 D1-reads handler registered ahead of `routeAgentRequest` — see §4) from
-`apps/web/src/app/dashboard/page.tsx`, so every number on that tab now traces
-to a column the pipeline actually writes, with an explicit empty state for the
-common "connected, nothing ingested yet" beta case. AI Inbox and
+`apps/web/src/app/dashboard/_lib/fetch-overview.ts` (called from that route's
+`page.tsx`), so every number on that tab now traces to a column the pipeline
+actually writes, with an explicit empty state for the common "connected,
+nothing ingested yet" beta case. AI Inbox and
 Applications (renamed from Inbox and Companies; the `ViewKey` values remain
 `inbox`/`companies`) are still the disconnected half described below.
 

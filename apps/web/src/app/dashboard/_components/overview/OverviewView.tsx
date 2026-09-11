@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import type { OverviewResponse } from '../../page'
+import type { OverviewResponse } from '../../_lib/overview-schema'
 import { RecentActivityCard } from './RecentActivityCard'
 import { StatsGrid } from './StatsGrid'
 import { StatusBreakdownCard } from './StatusBreakdownCard'
