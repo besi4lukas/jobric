@@ -184,6 +184,7 @@
 .dashboard-app .avatar {
   width: 34px;
   height: 34px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
   color: var(--paper);
@@ -194,10 +195,22 @@
   font-weight: 400;
   font-size: 17px;
 }
+/* `min-width: 0` lets the flex item shrink below its min-content width;
+   without it a long unbreakable email pushes past the 240px sidebar. The
+   name and email each truncate on one line so the footer keeps a fixed
+   height — the full email is shown in the menu panel header on open. */
 .dashboard-app .side-footer .who {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 13.5px;
   line-height: 1.2;
+}
+.dashboard-app .side-footer .who,
+.dashboard-app .side-footer .who small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dashboard-app .side-footer .who small {
   display: block;
@@ -228,7 +241,9 @@
   color: var(--ink-mute);
   border-bottom: 1px solid var(--line);
   margin-bottom: 4px;
-  overflow-wrap: break-word;
+  /* `anywhere` (not `break-word`) so an email with no break opportunities
+     still wraps inside the 240px panel instead of overflowing it. */
+  overflow-wrap: anywhere;
 }
 .dashboard-app .user-menu-item {
   width: 100%;

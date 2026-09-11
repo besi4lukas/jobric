@@ -123,9 +123,9 @@ export function UserMenu({ userName, userEmail, userInitial }: UserMenuProps) {
         onClick={() => setOpen((v) => !v)}
       >
         <span className="avatar">{userInitial}</span>
-        <span className="who">
+        <span className="who" title={userName}>
           {userName}
-          <small>{userEmail}</small>
+          <small title={userEmail}>{userEmail}</small>
         </span>
       </button>
 
