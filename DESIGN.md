@@ -137,6 +137,41 @@ they're spelled out:
   aggregate view across a user's whole application history. No message
   bodies, no snippets, no email addresses.
 
+### The thread summary
+
+`threads.summary` is the one-or-two-sentence line under each AI Inbox row,
+written by `apps/agents/src/lib/thread-summary.ts` — a sibling of the
+Overview module, bound by the same three rules (cron-coalesced, plain module,
+never on a read path). Where it differs:
+
+- **Staleness is implicit — no extra column.** A thread needs (re)generation
+  when `summary_updated_at IS NULL OR summary_updated_at < last_message_at`.
+  The write stamps `summary_updated_at` with the thread's `last_message_at`
+  _as selected_, not `now`, so a message that lands while the LLM call is in
+  flight still reads as stale on the next tick instead of being masked. An
+  older message ingested late (Gmail history is not date-ordered) doesn't
+  move `last_message_at`, so it doesn't trigger a regeneration either.
+- **Gated on new mail, not on a status change.** The Overview summary only
+  regenerates when an `events` row was written; a thread summary goes stale
+  on _any_ new message ("Sounds good, see you Tuesday" changes what the line
+  should say without changing the application's status). Both hang off the
+  same `newCount > 0` check in `cron.ts`.
+- **Bounded spend per tick.** At most 10 stale threads per account per tick,
+  newest `last_message_at` first — those are the rows at the top of the
+  inbox. Each thread sends the newest 15 messages, flipped to chronological
+  order, because meaning depends on sequence. Leftovers wait for the next
+  tick that ingests mail for that account.
+- **Stale-while-error, per thread.** A failed generation logs and leaves
+  the row untouched, so the last good summary (or the UI's pending fallback,
+  PR C) keeps showing and the thread is retried next tick. There is no
+  `failure_count`/backoff equivalent yet — a persistently failing thread
+  keeps its slot every tick with new mail (techdebt #22).
+- **Privacy.** This is the first module that sends message-derived text to
+  Anthropic: `from_address`, `subject`, and the Gmail `snippet` (the same
+  ~100-char preview the parser already receives as its body, §4 step 1).
+  Still no bodies — nothing beyond what `format=metadata` returns is ever
+  fetched. Logs carry ids and error strings only, never the text.
+
 ---
 
 ## 3. Happy path, phase 1 — connect
@@ -345,7 +380,8 @@ users (Clerk id)
   │                    │            application on first sight, never rebound
   │                    │            message_count + last_message_at derived
   │                    │            from messages (recomputed, never bumped)
-  │                    │            summary: still unwritten — inbox PR B
+  │                    │            summary + summary_updated_at: cron-written,
+  │                    │            stale when updated_at < last_message_at
   │                    └──< messages   snippet only, no body (privacy §1)
   │                                    UNIQUE(user, gmail_message_id) = dedup
   │
@@ -396,12 +432,11 @@ Applications (renamed from Inbox and Companies; the `ViewKey` values remain
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
   Gmail OAuth ✓                          AI Inbox / Applications UI (mock)
-  Cron poll ✓                            threads.summary (per-thread AI
-  Agent pipeline ✓                         summary — inbox PR B)
-  D1 writes ✓ (incl. threads/messages)   GET /api/inbox read path (PR C)
-  Overview UI ✓ (real D1 reads)          /applications DO endpoint (no caller —
-                                           superseded by /api/overview for the
-                                           dashboard's read path; left in place)
+  Cron poll ✓                            GET /api/inbox read path (PR C)
+  Agent pipeline ✓                       /applications DO endpoint (no caller —
+  D1 writes ✓ (incl. threads/messages)     superseded by /api/overview for the
+  Thread summaries ✓ (cron, cached)        dashboard's read path; left in place)
+  Overview UI ✓ (real D1 reads)
                     ╲                   ╱
                      ╲                 ╱
                       ▼               ▼
@@ -479,3 +514,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-10 | Sign-out implemented (§3, "Session termination"). New `UserMenu` accessible dropdown (`apps/web/src/app/dashboard/_components/UserMenu.tsx`) replaces the static sidebar `.side-footer`, calling `useClerk().signOut({ redirectUrl: '/' })`. A second `<SignOutButton redirectUrl="/">` entry point was added to `/settings`. `<ClerkProvider afterSignOutUrl="/">` added as a fallback for sign-out paths this app doesn't initiate. Gmail connection and `apps/agents` untouched by design — auth and inbox integration stay separate flows. The sidebar's standalone Settings nav item was folded into that menu, so `/settings` is now reached only from the account dropdown. Dashboard nav renamed for the beta: Inbox -> AI Inbox, Companies -> Applications (user-facing labels and page titles only; the `ViewKey` union, the `InboxView`/`CompaniesView` components and the `_data` modules keep their existing identifiers). The landing page's illustrative dashboard preview tab was renamed to match. `/settings` restyled onto the dashboard's paper palette: inline styles replaced by a scoped `settings.css`, using the global `:root` tokens from `landing.css` and overriding only `--ink-mute`/`--radius-sm` (which differ between `:root` and `dashboard.css`) plus `--line-2` (dashboard-only). |
 | 2026-09-10 | Web typography moved to a native system font stack. `--f-body`/`--f-display`/`--f-mono` now resolve to the viewer's OS UI font via a new `--f-ui` token in `landing.css` `:root`; Instrument Serif, Newsreader and JetBrains Mono dropped from `next/font`. Caveat is retained as the only webfont (brand script accents) and remains owned solely by `layout.tsx` — `--f-script` must not be redeclared in CSS or it collides with next/font's generated family at equal specificity. `dashboard.css` no longer redeclares the font tokens; they inherit from `:root`. Display headings retuned for sans optics (weight 600–700, tighter tracking, display-size italics converted to color contrast) and stat figures set in `tabular-nums`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 2026-09-13 | AI Inbox ingestion (PR A of three; §4 steps 0/2/3/6, "Thread binding rule", §5). `threads` and `messages` are now written by the orchestrator via `apps/agents/src/db/inbox.ts` — one transactional D1 batch that ensures the thread, inserts the message, and recomputes `message_count`/`last_message_at` from rows. Migration `0004_inbox.sql` adds `threads.last_message_at` (the future Inbox sort key) and a `(user_id, last_message_at DESC, id DESC)` keyset index. `gmail/client.ts` now reads `internalDate` → `sentAt`; the cron envelope forwards `gmailThreadId`, `snippet`, `sentAt`, and passes the snippet as the parser's `body`. Orchestrator: dedup on `gmail_message_id` before any LLM call, known-thread anchoring of the application, low-confidence replies on known threads recorded instead of dropped, `events.message_id` populated. First tests in `apps/agents` (vitest, `node:sqlite` running the real migrations — `src/__tests__/helpers/d1.ts`). Techdebt #3 and #7 closed, #2 partially. **Deploy order: `migrate:prod` before `turbo deploy`.**                                                                                                                                                                                                                                    |
+| 2026-09-13 | AI Inbox summaries (PR B of three; §2 "The thread summary", §5). New `apps/agents/src/lib/thread-summary.ts` writes `threads.summary` / `summary_updated_at` from the cron tick, gated on `newCount > 0` per account alongside the Overview summary. Staleness is implicit (`summary_updated_at < last_message_at`, stamped with the selected `last_message_at` rather than `now`); at most 10 threads per tick, newest first; newest 15 messages per thread in chronological order; failures leave the row untouched. No migration. Reuses `sanitizeSummaryText` from `overview-summary.ts`. 13 tests mock only the `ai` boundary and drive the module through `recordMessage()` on the real migrations. Read path and UI remain PR C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
