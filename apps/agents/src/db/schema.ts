@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
-// Mirrors apps/agents/migrations/0001_schema_v1.sql, 0002_overview.sql, and
-// 0003_overview_summary.sql. Keep CHECK constraints, NOT NULL choices, and
-// enum values in sync with SQL.
+// Mirrors apps/agents/migrations/0001_schema_v1.sql, 0002_overview.sql,
+// 0003_overview_summary.sql, and 0004_inbox.sql. Keep CHECK constraints,
+// NOT NULL choices, and enum values in sync with SQL.
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 export const ApplicationStatusSchema = z.enum([
@@ -106,6 +106,9 @@ export const ThreadSchema = z.object({
   summary: z.string().nullable(),
   summaryUpdatedAt: isoDateTime.nullable(),
   messageCount: z.number().int().nonnegative(),
+  // MAX(messages.sent_at) for the thread — the Inbox sort key. Nullable only
+  // because of the ALTER TABLE in 0004; every write sets it.
+  lastMessageAt: isoDateTime.nullable(),
 })
 export type Thread = z.infer<typeof ThreadSchema>
 
@@ -151,7 +154,8 @@ export type ParseFailure = z.infer<typeof ParseFailureSchema>
 
 // ─── user_summaries ──────────────────────────────────────────────────────────
 // Derived cache, not a source of truth — see migration 0003_overview_summary.sql.
-// Distinct from threads.summary (per-thread, still unwritten — techdebt #7).
+// Distinct from threads.summary (per-thread; generation is PR B of the
+// inbox work — the column is still unwritten today).
 // Text columns are nullable on purpose: a failed first attempt creates a row
 // with no text, and a stale-while-error read keeps serving the last good
 // headline/body until the next successful cron-triggered generation.

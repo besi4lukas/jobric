@@ -37,8 +37,12 @@ migrates `--local`. Deploying first means every `pollAccount()` throws on the
 missing column, the watermark never advances, and ingestion halts silently for
 every user — `cron.ts` swallows per-account failures.
 
-Test coverage is thin — only `@jobric/shared` defines a `test` script. `apps/web`
-and `apps/agents` have none (techdebt #17).
+Test coverage is thin. `@jobric/shared` and `@jobric/agents` define `test`
+scripts (vitest); `apps/web` has none (techdebt #17). Agent tests that touch D1
+use `apps/agents/src/__tests__/helpers/d1.ts` — an in-memory `node:sqlite`
+shim that applies the real `migrations/*.sql`, so a test failing on a missing
+column means the migration is wrong, not the test. Test files live in
+`__tests__/` directories and are excluded from `tsc` (see `tsconfig.json`).
 
 ## Architecture
 

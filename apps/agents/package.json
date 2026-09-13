@@ -8,7 +8,8 @@
     "check-types": "tsc --noEmit",
     "cf-typegen": "wrangler types",
     "migrate:local": "wrangler d1 migrations apply jobric-db --local",
-    "migrate:prod": "wrangler d1 migrations apply jobric-db --remote"
+    "migrate:prod": "wrangler d1 migrations apply jobric-db --remote",
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.0",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
     "typescript": "^5.0.0",
+    "vitest": "^4.0.18",
     "wrangler": "^4.86.0"
   }
 }

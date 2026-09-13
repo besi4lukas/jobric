@@ -113,6 +113,10 @@ const MessageSchema = z.object({
   id: z.string().min(1),
   threadId: z.string().min(1),
   snippet: z.string().optional(),
+  // Epoch milliseconds as a decimal string. Gmail always sends it, but it's
+  // optional here on purpose: a strict schema would make one odd message
+  // throw out of pollAccount() and pin that account's watermark forever.
+  internalDate: z.string().regex(/^\d+$/).optional(),
   payload: z
     .object({
       headers: z.array(HeaderSchema).optional(),
@@ -129,6 +133,9 @@ export type GmailMessageMetadata = {
   to: string
   subject: string
   sizeEstimate: number
+  // ISO-8601, from internalDate. null when Gmail omitted it — callers fall
+  // back to processing time rather than dropping the message.
+  sentAt: string | null
 }
 
 // format=metadata pulls headers + snippet only. No body bytes leave Gmail.
@@ -162,5 +169,15 @@ export async function getMessage(
     to: findHeader('To'),
     subject: findHeader('Subject'),
     sizeEstimate: message.sizeEstimate ?? 0,
+    sentAt: internalDateToIso(message.internalDate),
   }
+}
+
+export function internalDateToIso(
+  internalDate: string | undefined,
+): string | null {
+  if (internalDate === undefined) return null
+  const ms = Number(internalDate)
+  if (!Number.isFinite(ms)) return null
+  return new Date(ms).toISOString()
 }
