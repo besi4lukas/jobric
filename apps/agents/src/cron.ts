@@ -1,6 +1,7 @@
 import { decryptRefreshToken } from './lib/crypto'
 import { getAccessToken, listHistory, getMessage } from './gmail/client'
 import { generateOverviewSummary } from './lib/overview-summary'
+import { refreshThreadSummaries } from './lib/thread-summary'
 import type { Env, EmailEnvelope } from './types'
 
 // Forward-only Gmail polling. Invariant: email_accounts.last_history_id is
@@ -67,6 +68,20 @@ export async function runScheduledPoll(env: Env): Promise<void> {
           }
         } catch (err) {
           log('cron overview summary check failed', {
+            userId: account.user_id,
+            error: errorMessage(err),
+          })
+        }
+
+        // Per-thread AI Inbox summaries. Only threads whose last_message_at
+        // moved past summary_updated_at are touched, capped per tick — see
+        // lib/thread-summary.ts. Gated on newCount (not on a status change)
+        // because a thread's summary goes stale on ANY new message, not just
+        // the ones that move an application forward.
+        try {
+          await refreshThreadSummaries(env, account.user_id)
+        } catch (err) {
+          log('cron thread summary refresh failed', {
             userId: account.user_id,
             error: errorMessage(err),
           })
