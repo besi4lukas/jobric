@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import type { InboxResponse } from './_lib/inbox-schema'
 import type { OverviewResponse } from './_lib/overview-schema'
 import { CompaniesView } from './_components/companies/CompaniesView'
 import { InboxView } from './_components/inbox/InboxView'
@@ -16,6 +17,7 @@ type DashboardProps = {
   userEmail: string
   userInitial: string
   overview: OverviewResponse | null
+  inbox: InboxResponse | null
 }
 
 export function Dashboard({
@@ -23,6 +25,7 @@ export function Dashboard({
   userEmail,
   userInitial,
   overview,
+  inbox,
 }: DashboardProps) {
   const [view, setView] = useState<ViewKey>('overview')
   const title = TITLES[view]
@@ -42,7 +45,12 @@ export function Dashboard({
           <Topbar title={title.h} subtitle={title.s} />
           <div className="content">
             {view === 'overview' && <OverviewView overview={overview} />}
-            {view === 'inbox' && <InboxView />}
+            {view === 'inbox' && (
+              <InboxView
+                inbox={inbox}
+                connected={overview?.account.connected ?? null}
+              />
+            )}
             {view === 'applications' && <CompaniesView />}
           </div>
         </main>

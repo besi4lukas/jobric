@@ -20,12 +20,12 @@
      app reads as native on every platform and costs zero font requests.
      Only --f-script loads a webfont (Caveat, via next/font in layout.tsx). */
   --f-ui:
-    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
   --f-body: var(--f-ui);
   --f-display: var(--f-ui);
   --f-mono:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Cascadia Mono",
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Cascadia Mono',
     monospace;
   /* --f-script is intentionally NOT defined here. next/font sets it on <html>
      with its own generated family name; redeclaring it on :root would collide
@@ -54,12 +54,20 @@ body {
   position: relative;
 }
 .auth-shell::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(184, 84, 42, 0.05), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(201, 138, 47, 0.05), transparent 50%);
+    radial-gradient(
+      circle at 20% 10%,
+      rgba(184, 84, 42, 0.05),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(201, 138, 47, 0.05),
+      transparent 50%
+    );
   pointer-events: none;
   z-index: 0;
 }
@@ -112,12 +120,20 @@ body {
 }
 
 .landing::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(184, 84, 42, 0.05), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(201, 138, 47, 0.05), transparent 50%);
+    radial-gradient(
+      circle at 20% 10%,
+      rgba(184, 84, 42, 0.05),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(201, 138, 47, 0.05),
+      transparent 50%
+    );
   pointer-events: none;
   z-index: 0;
 }
@@ -236,7 +252,7 @@ body {
   display: inline-block;
 }
 .landing h1.display .under::after {
-  content: "";
+  content: '';
   position: absolute;
   left: -4px;
   right: -4px;
@@ -864,12 +880,16 @@ body {
   overflow: hidden;
 }
 .landing .privacy::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background:
     radial-gradient(circle at 85% 20%, rgba(184, 84, 42, 0.2), transparent 40%),
-    radial-gradient(circle at 10% 90%, rgba(201, 138, 47, 0.15), transparent 40%);
+    radial-gradient(
+      circle at 10% 90%,
+      rgba(201, 138, 47, 0.15),
+      transparent 40%
+    );
 }
 .landing .privacy-inner {
   position: relative;

@@ -418,32 +418,58 @@ uses `interview`. `eventTypeForStatus()` in the orchestrator bridges them.
 ## 6. Known design gaps
 
 The intended architecture is coherent. The gap is that it was built as two
-halves that mostly don't touch — **the Overview tab is now the exception.**
-It fetches `GET /api/overview` (`apps/agents/src/routes/overview.ts`, a plain
-D1-reads handler registered ahead of `routeAgentRequest` — see §4) from
-`apps/web/src/app/dashboard/_lib/fetch-overview.ts` (called from that route's
-`page.tsx`), so every number on that tab now traces to a column the pipeline
-actually writes, with an explicit empty state for the common "connected,
-nothing ingested yet" beta case. AI Inbox and
-Applications (renamed from Inbox and Companies; the `ViewKey` values remain
-`inbox`/`companies`) are still the disconnected half described below.
+halves that mostly don't touch — **Overview and AI Inbox are now the
+exceptions.** Both fetch a plain D1-reads handler registered ahead of
+`routeAgentRequest` (§4): `GET /api/overview` via
+`apps/web/src/app/dashboard/_lib/fetch-overview.ts`, and `GET /api/inbox` via
+`_lib/fetch-inbox.ts`, both called from that route's `page.tsx` in one
+`Promise.all`. Every number and line on those tabs traces to a column the
+pipeline actually writes, with explicit empty states for the common
+"connected, nothing ingested yet" beta case. Applications (renamed from
+Companies; the `ViewKey` value remains `companies`) is the last mock tab.
+
+### The AI Inbox read path
+
+- **Keyset pagination, not OFFSET.** The list is newest-first and new mail
+  lands at the top between page loads; `OFFSET 20` would then repeat or skip
+  whatever shifted. The cursor is the last row's `(last_message_at, id)`,
+  base64url-encoded, served directly by `idx_threads_user_last_message`
+  (migration 0004). `id` breaks timestamp ties so equal `last_message_at`
+  values still page cleanly. The Worker fetches `limit + 1` rows to learn
+  whether a next page exists without a COUNT.
+- **The browser never calls the Worker.** The first page is fetched server-
+  side in `page.tsx`; later pages go through a Server Action
+  (`_actions/inbox.ts` → `fetchInbox`). Worker responses carry no CORS
+  headers (techdebt #9), and keeping the Clerk session token server-side is
+  the right shape regardless. Client state in `ThreadList` appends pages.
+- **Stale-while-pending.** `summaryState` is `ready` whenever a summary
+  exists — even one older than the newest message — and `pending` only when
+  none has been written yet. A stale line beats a blank one while the cron
+  regenerates. Pending rows show the newest subject instead.
+- **Same contract asymmetry as Overview.** `nextCursor`, `summaryState`, and
+  `lastSubject` are required on the Worker (`routes/inbox.ts`) and
+  defaulted on the web (`_lib/inbox-schema.ts`) so a web deploy that races
+  the Worker degrades instead of throwing. `_lib/status.ts` is the one
+  place the Worker's `application_status` enum meets the dashboard's pill
+  classes; Recent Activity uses it too.
 
 ```
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
-  Gmail OAuth ✓                          AI Inbox / Applications UI (mock)
-  Cron poll ✓                            GET /api/inbox read path (PR C)
+  Gmail OAuth ✓                          Applications UI (mock —
+  Cron poll ✓                              _data/companies.ts)
   Agent pipeline ✓                       /applications DO endpoint (no caller —
-  D1 writes ✓ (incl. threads/messages)     superseded by /api/overview for the
-  Thread summaries ✓ (cron, cached)        dashboard's read path; left in place)
+  D1 writes ✓ (incl. threads/messages)     superseded by /api/overview and
+  Thread summaries ✓ (cron, cached)        /api/inbox; left in place)
   Overview UI ✓ (real D1 reads)
+  AI Inbox UI ✓ (real D1 reads, paged)
                     ╲                   ╱
                      ╲                 ╱
                       ▼               ▼
                    ┌───────────────────┐
                    │  THE MISSING SEAM │
-                   │  (partially closed│
-                   │  — see Overview)  │
+                   │  (one tab left —  │
+                   │   Applications)   │
                    └───────────────────┘
 ```
 
@@ -515,3 +541,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-10 | Web typography moved to a native system font stack. `--f-body`/`--f-display`/`--f-mono` now resolve to the viewer's OS UI font via a new `--f-ui` token in `landing.css` `:root`; Instrument Serif, Newsreader and JetBrains Mono dropped from `next/font`. Caveat is retained as the only webfont (brand script accents) and remains owned solely by `layout.tsx` — `--f-script` must not be redeclared in CSS or it collides with next/font's generated family at equal specificity. `dashboard.css` no longer redeclares the font tokens; they inherit from `:root`. Display headings retuned for sans optics (weight 600–700, tighter tracking, display-size italics converted to color contrast) and stat figures set in `tabular-nums`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 2026-09-13 | AI Inbox ingestion (PR A of three; §4 steps 0/2/3/6, "Thread binding rule", §5). `threads` and `messages` are now written by the orchestrator via `apps/agents/src/db/inbox.ts` — one transactional D1 batch that ensures the thread, inserts the message, and recomputes `message_count`/`last_message_at` from rows. Migration `0004_inbox.sql` adds `threads.last_message_at` (the future Inbox sort key) and a `(user_id, last_message_at DESC, id DESC)` keyset index. `gmail/client.ts` now reads `internalDate` → `sentAt`; the cron envelope forwards `gmailThreadId`, `snippet`, `sentAt`, and passes the snippet as the parser's `body`. Orchestrator: dedup on `gmail_message_id` before any LLM call, known-thread anchoring of the application, low-confidence replies on known threads recorded instead of dropped, `events.message_id` populated. First tests in `apps/agents` (vitest, `node:sqlite` running the real migrations — `src/__tests__/helpers/d1.ts`). Techdebt #3 and #7 closed, #2 partially. **Deploy order: `migrate:prod` before `turbo deploy`.**                                                                                                                                                                                                                                    |
 | 2026-09-13 | AI Inbox summaries (PR B of three; §2 "The thread summary", §5). New `apps/agents/src/lib/thread-summary.ts` writes `threads.summary` / `summary_updated_at` from the cron tick, gated on `newCount > 0` per account alongside the Overview summary. Staleness is implicit (`summary_updated_at < last_message_at`, stamped with the selected `last_message_at` rather than `now`); at most 10 threads per tick, newest first; newest 15 messages per thread in chronological order; failures leave the row untouched. No migration. Reuses `sanitizeSummaryText` from `overview-summary.ts`. 13 tests mock only the `ai` boundary and drive the module through `recordMessage()` on the real migrations. Read path and UI remain PR C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-09-13 | AI Inbox read path (PR C of three; §6 "The AI Inbox read path"). New `GET /api/inbox?limit=&cursor=` (`apps/agents/src/routes/inbox.ts`): plain D1 reads, keyset cursor on `(last_message_at, id)` base64url-encoded, `limit + 1` probe for `nextCursor`, clamp 1–50, 400 on bad input. Web: `_lib/inbox-schema.ts` + `_lib/fetch-inbox.ts` (server-only), first page fetched in `page.tsx` alongside Overview, later pages via Server Action `_actions/inbox.ts`; `ThreadList` is now a client component with "Load more"; `InboxView` gains Overview's three empty states; new `_lib/status.ts` shared with Recent Activity; `threadTime()` in `_lib/format.ts`. `_data/inbox.ts` and the mock `Thread` type deleted. First tests in `apps/web` (vitest, pure TS: schema defaults, status mapping, `threadTime`). Agents: 14 route tests incl. a new-mail-between-pages case. No migration; nothing to run before deploy. Techdebt #1 closed for Inbox (Applications remains).                                                                                                                                                                                                                                                                                                                                       |

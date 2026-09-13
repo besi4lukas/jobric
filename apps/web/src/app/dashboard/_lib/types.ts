@@ -8,19 +8,6 @@ export type StatusKey =
   | 'rejected'
   | 'final'
 
-export type Thread = {
-  id: string
-  logo: string
-  co: string
-  when: string
-  role: string
-  summary: string
-  status: StatusKey
-  statusLabel: string
-  messages: number
-  unread: boolean
-}
-
 export type Company = {
   logo: string
   name: string

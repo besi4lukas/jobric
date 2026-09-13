@@ -1,5 +1,6 @@
 import { currentUser, auth } from '@clerk/nextjs/server'
 import { Dashboard } from './Dashboard'
+import { fetchInbox } from './_lib/fetch-inbox'
 import { fetchOverview } from './_lib/fetch-overview'
 
 export default async function DashboardPage() {
@@ -17,7 +18,12 @@ export default async function DashboardPage() {
   const userEmail = primaryEmail ?? ''
   const userInitial = (firstName?.[0] ?? primaryEmail?.[0] ?? '?').toUpperCase()
 
-  const overview = await fetchOverview(getToken)
+  // Both tabs' first pages, in parallel — the Dashboard switches tabs with
+  // client state, not routes, so both must be ready at render.
+  const [overview, inbox] = await Promise.all([
+    fetchOverview(getToken),
+    fetchInbox(getToken),
+  ])
 
   return (
     <Dashboard
@@ -25,6 +31,7 @@ export default async function DashboardPage() {
       userEmail={userEmail}
       userInitial={userInitial}
       overview={overview}
+      inbox={inbox}
     />
   )
 }

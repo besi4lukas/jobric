@@ -1,7 +1,7 @@
 import { Logo } from '../Logo'
 import { StatusPill } from '../StatusPill'
-import type { StatusKey } from '../../_lib/types'
 import { relativeTime } from '../../_lib/format'
+import { STATUS_LABELS, pillStatusFor } from '../../_lib/status'
 
 type RecentRow = {
   id: string
@@ -11,25 +11,6 @@ type RecentRow = {
   previousStatus: string | null
   reason: string | null
   occurredAt: string
-}
-
-// event_type uses 'interview' (singular); application status uses
-// 'interviewing'. Inverse of the orchestrator's eventTypeForStatus() —
-// declared locally since the web app doesn't share code with apps/agents.
-const STATUS_LABELS: Record<string, string> = {
-  applied: 'applied',
-  replied: 'replied',
-  interview: 'interviewing',
-  interviewing: 'interviewing',
-  offer: 'offer',
-  closed: 'closed',
-}
-
-// 'closed' has no dedicated .status.closed CSS class — map it to the
-// existing 'rejected' pill styling.
-function pillStatusForEventType(eventType: string): StatusKey {
-  if (eventType === 'closed') return 'rejected'
-  return eventType as StatusKey
 }
 
 function transitionLabel(
@@ -61,7 +42,7 @@ export function RecentActivityCard({ recent }: { recent: RecentRow[] }) {
                   <div className="role">{r.role}</div>
                   <div className="co">{r.company}</div>
                 </div>
-                <StatusPill status={pillStatusForEventType(r.eventType)}>
+                <StatusPill status={pillStatusFor(r.eventType)}>
                   {transitionLabel(r.eventType, r.previousStatus)}
                 </StatusPill>
                 <span className="when">{relativeTime(r.occurredAt)}</span>
