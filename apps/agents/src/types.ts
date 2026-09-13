@@ -46,6 +46,13 @@ export const EmailEnvelopeSchema = z.object({
   // the Cloudflare Email Workers path. Required for parse_failures capture —
   // failures without this id can't be replayed and surface as 5xx to caller.
   gmailMessageId: z.string().min(1).optional(),
+  // Also cron-path only. Together with gmailMessageId these let the
+  // orchestrator write threads/messages (the AI Inbox data source). When
+  // any of the two ids is absent the pipeline still runs, it just records
+  // no inbox row — see db/inbox.ts inboxInputFromEnvelope().
+  gmailThreadId: z.string().min(1).optional(),
+  snippet: z.string().optional(),
+  sentAt: z.string().datetime({ offset: true }).optional(),
 })
 
 export type EmailEnvelope = z.infer<typeof EmailEnvelopeSchema>

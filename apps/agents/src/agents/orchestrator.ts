@@ -11,10 +11,17 @@ import {
   type TrackEnvelope,
 } from '../types'
 import { funnelRankFor, type EventType } from '../db/schema'
+import {
+  findThreadByGmailId,
+  hasProcessedMessage,
+  inboxInputFromEnvelope,
+  recordMessage,
+} from '../db/inbox'
 
 // ─── OrchestratorAgent ─────────────────────────────────────────────────────────
-// Coordinates the pipeline: parse email → resolve company → look up previous
-// status → ask tracker if status changed → upsert application → write event.
+// Coordinates the pipeline: dedup → parse email → resolve thread/company →
+// look up previous status → ask tracker if status changed → upsert
+// application → record thread/message → write event.
 // D1 (v1 schema in migrations/0001_schema_v1.sql) is the store of record.
 // ──────────────────────────────────────────────────────────────────────────────
 export class OrchestratorAgent extends Agent<Env> {
@@ -38,6 +45,23 @@ export class OrchestratorAgent extends Agent<Env> {
     const { userId } = envelope
 
     try {
+      const now = new Date().toISOString()
+      const inbox = inboxInputFromEnvelope(envelope, now)
+
+      // ── Step 0: Dedup ──────────────────────────────────────────────────────
+      // cron.ts replays a whole batch from the same watermark after any
+      // mid-batch failure. Bail here, before the parser, so a replayed
+      // message costs no LLM calls and writes no duplicate events row.
+      if (
+        inbox &&
+        (await hasProcessedMessage(this.env.DB, userId, inbox.gmailMessageId))
+      ) {
+        this.log('Skipping already-processed message', {
+          gmailMessageId: inbox.gmailMessageId,
+        })
+        return Response.json({ skipped: true, reason: 'duplicate' })
+      }
+
       // ── Step 1: Parse the email ────────────────────────────────────────────
       const parsed = await this.callAgent<ParsedApplication>(
         this.env.ParserAgent,
@@ -46,32 +70,80 @@ export class OrchestratorAgent extends Agent<Env> {
         envelope satisfies EmailEnvelope,
       )
 
-      if (parsed.confidence === 'low') {
+      // ── Step 2: Resolve the thread, then the application ──────────────────
+      // A Gmail thread we've seen before is a stronger signal than this
+      // message's parse: it anchors the application regardless of how the
+      // parser spelled the company or role this time. Only an unknown thread
+      // goes through company resolution + the (company, role, req) lookup.
+      const knownThread = inbox
+        ? await findThreadByGmailId(this.env.DB, userId, inbox.gmailThreadId)
+        : null
+
+      if (!knownThread && parsed.confidence === 'low') {
         this.log('Skipping low confidence parse', parsed)
         return Response.json({ skipped: true, reason: 'low confidence' })
       }
 
-      const now = new Date().toISOString()
-
-      // ── Step 2: Resolve / create company ───────────────────────────────────
-      const normalizedName = parsed.company.trim().toLowerCase()
-      const companyId = await this.findOrCreateCompany(
-        userId,
-        parsed.company,
-        normalizedName,
-        now,
-      )
-
-      // ── Step 3: Look up previous application + status ──────────────────────
+      let existing: { id: string; status: ApplicationStatus } | null = null
+      let companyId: string | null = null
       const requisitionId = parsed.requisitionId ?? null
-      const existing = await this.env.DB.prepare(
-        `SELECT id, status FROM applications
-         WHERE user_id = ? AND company_id = ? AND role_title = ?
-           AND COALESCE(requisition_id, '') = COALESCE(?, '')
-         LIMIT 1`,
-      )
-        .bind(userId, companyId, parsed.role, requisitionId)
-        .first<{ id: string; status: ApplicationStatus }>()
+
+      if (knownThread) {
+        existing = await this.env.DB.prepare(
+          `SELECT id, status FROM applications WHERE id = ? LIMIT 1`,
+        )
+          .bind(knownThread.applicationId)
+          .first<{ id: string; status: ApplicationStatus }>()
+        // applications → threads is ON DELETE CASCADE, so a thread whose
+        // application vanished shouldn't exist. Fail loud rather than
+        // re-create the application under a guessed company.
+        if (!existing) {
+          throw new Error(
+            `thread ${knownThread.id} references missing application ${knownThread.applicationId}`,
+          )
+        }
+      } else {
+        const normalizedName = parsed.company.trim().toLowerCase()
+        companyId = await this.findOrCreateCompany(
+          userId,
+          parsed.company,
+          normalizedName,
+          now,
+        )
+        existing = await this.env.DB.prepare(
+          `SELECT id, status FROM applications
+           WHERE user_id = ? AND company_id = ? AND role_title = ?
+             AND COALESCE(requisition_id, '') = COALESCE(?, '')
+           LIMIT 1`,
+        )
+          .bind(userId, companyId, parsed.role, requisitionId)
+          .first<{ id: string; status: ApplicationStatus }>()
+      }
+
+      // ── Step 3: Low-confidence reply on a known thread ────────────────────
+      // "Sounds good, see you Tuesday" parses low-confidence but still
+      // belongs in the inbox and still counts toward the thread. Record it
+      // and touch the application, but don't ask the tracker to re-derive a
+      // status from a message that doesn't carry one. (`existing` is always
+      // set when knownThread is — the check is for the narrowing.)
+      if (knownThread && existing && parsed.confidence === 'low' && inbox) {
+        await this.env.DB.prepare(
+          `UPDATE applications SET last_activity_at = ? WHERE id = ?`,
+        )
+          .bind(now, existing.id)
+          .run()
+        const recorded = await recordMessage(this.env.DB, existing.id, inbox)
+        this.log('Recorded low-confidence message on known thread', {
+          applicationId: existing.id,
+          ...recorded,
+        })
+        return Response.json({
+          applicationId: existing.id,
+          parsed,
+          statusChange: null,
+          thread: recorded,
+        })
+      }
 
       const previousStatus: ApplicationStatus | null = existing?.status ?? null
 
@@ -103,6 +175,12 @@ export class OrchestratorAgent extends Agent<Env> {
           .bind(newStatus, funnelRank, now, interviewAt, applicationId)
           .run()
       } else {
+        // Unreachable with a known thread (existing is always set on that
+        // branch above), so companyId was resolved. Guard for the compiler
+        // and for anyone who reorders the steps.
+        if (!companyId) {
+          throw new Error('new application without a resolved company')
+        }
         await this.env.DB.prepare(
           `INSERT INTO applications
              (id, user_id, company_id, role_title, requisition_id,
@@ -125,7 +203,15 @@ export class OrchestratorAgent extends Agent<Env> {
           .run()
       }
 
-      // ── Step 6: Record the event when status changed ──────────────────────
+      // ── Step 6: Record the thread + message (AI Inbox) ────────────────────
+      // After the application upsert so the FK target exists. null on the
+      // Email Workers path (no Gmail ids) — the pipeline still completes,
+      // the message just doesn't appear in the inbox.
+      const recorded = inbox
+        ? await recordMessage(this.env.DB, applicationId, inbox)
+        : null
+
+      // ── Step 7: Record the event when status changed ──────────────────────
       // Also fires for a brand-new application even when the tracker returns
       // changed=false — "nothing progressed" is a defensible LLM answer when
       // previousStatus is null, but it means a first sighting would otherwise
@@ -135,7 +221,7 @@ export class OrchestratorAgent extends Agent<Env> {
           `INSERT INTO events
              (id, user_id, application_id, event_type, occurred_at,
               source, metadata, message_id)
-           VALUES (?, ?, ?, ?, ?, 'gmail', ?, NULL)`,
+           VALUES (?, ?, ?, ?, ?, 'gmail', ?, ?)`,
         )
           .bind(
             crypto.randomUUID(),
@@ -147,12 +233,23 @@ export class OrchestratorAgent extends Agent<Env> {
               reason: statusChange.reason,
               previousStatus: existing ? statusChange.previousStatus : null,
             }),
+            recorded?.messageId ?? null,
           )
           .run()
       }
 
-      this.log('Pipeline complete', { applicationId, parsed, statusChange })
-      return Response.json({ applicationId, parsed, statusChange })
+      this.log('Pipeline complete', {
+        applicationId,
+        parsed,
+        statusChange,
+        thread: recorded,
+      })
+      return Response.json({
+        applicationId,
+        parsed,
+        statusChange,
+        thread: recorded,
+      })
     } catch (err) {
       const errorText = err instanceof Error ? err.message : String(err)
       this.log('Pipeline error', { userId: envelope.userId, error: errorText })

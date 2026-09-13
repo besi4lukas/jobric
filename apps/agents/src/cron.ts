@@ -10,8 +10,8 @@ import type { Env, EmailEnvelope } from './types'
 // Per-account isolation: a failure for one account never breaks the batch.
 // We only advance last_history_id after all enqueues for that account
 // succeed. If the cron crashes mid-batch, the next run replays from the
-// same watermark — duplicate enqueues are absorbed by the watcher's
-// UNIQUE(user_id, gmail_message_id) constraint.
+// same watermark — duplicate enqueues are absorbed by the orchestrator,
+// which checks messages.gmail_message_id before spending any LLM call.
 
 type AccountRow = {
   id: string
@@ -119,9 +119,18 @@ async function pollAccount(account: AccountRow, env: Env): Promise<number> {
         from: message.from,
         to: message.to,
         subject: message.subject,
+        // The Gmail snippet (~100 chars, no body bytes fetched) is the most
+        // the parser gets to see under format=metadata. Better than the
+        // subject-only prompt it ran on before (techdebt #2).
+        body: message.snippet || undefined,
         rawSize: message.sizeEstimate,
         // Required for parse_failures capture downstream.
         gmailMessageId: message.id,
+        // Inbox threading. sentAt stays undefined (not `now`) when Gmail
+        // omitted internalDate — the orchestrator picks the fallback.
+        gmailThreadId: message.threadId,
+        snippet: message.snippet || undefined,
+        sentAt: message.sentAt ?? undefined,
       }
       const enqueueResponse = await watcherStub.fetch(
         'https://internal/email',

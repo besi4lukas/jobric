@@ -225,7 +225,7 @@ The main loop, every 5 minutes:
     │      │  returns: [messageId…], newHistoryId
     │      ▼
     │  for each messageId: messages.get(format=metadata)
-    │      │  → { from, to, subject, snippet, sizeEstimate }
+    │      │  → { from, to, subject, snippet, internalDate, threadId }
     │      ▼
     │  ┌──────────────────────────────────────────────┐
     │  │ EmailWatcherAgent                            │
@@ -235,16 +235,25 @@ The main loop, every 5 minutes:
     │  └──────────────────┬───────────────────────────┘    LLM on newsletters
     │                     ▼
     │  ┌──────────────────────────────────────────────┐
-    │  │ OrchestratorAgent — 6 steps                  │
+    │  │ OrchestratorAgent — 8 steps                  │
     │  │                                              │
+    │  │  0. messages.gmail_message_id seen before?   │
+    │  │     yes ───────────────► skip, return 200    │  ← dedup gate:
+    │  │                                              │    replays cost 0 LLM
     │  │  1. ParserAgent  ─LLM─► {company, role,      │
-    │  │                          status, confidence} │
-    │  │     confidence=low ────► skip, return 200    │  ← quality gate
+    │  │       (snippet as body)  status, confidence} │
     │  │                                              │
-    │  │  2. find-or-create company (normalized name) │
+    │  │  2. threads.gmail_thread_id seen before?     │
+    │  │     yes → application := thread's binding    │  ← thread anchors
+    │  │     no  → find-or-create company, then       │    the application
+    │  │           SELECT prior application + status  │
+    │  │             key: (user, company, role, req)  │
+    │  │     unknown thread AND confidence=low        │
+    │  │       ────────────────► skip, return 200     │  ← quality gate
     │  │                                              │
-    │  │  3. SELECT prior application + status        │
-    │  │       key: (user, company, role, req_id)     │
+    │  │  3. known thread AND confidence=low          │
+    │  │       → record message (step 6), touch       │
+    │  │         last_activity_at, return 200         │  ← no tracker call
     │  │                                              │
     │  │  4. StatusTracker ─LLM─► {changed, newStatus,│
     │  │                            reason}           │
@@ -253,7 +262,11 @@ The main loop, every 5 minutes:
     │  │                                              │
     │  │  5. UPSERT applications (status + rank)      │
     │  │                                              │
-    │  │  6. if changed → INSERT events (audit trail) │
+    │  │  6. batch: ensure thread, INSERT message,    │
+    │  │     recompute message_count/last_message_at  │
+    │  │                                              │
+    │  │  7. if changed → INSERT events (audit trail, │
+    │  │     message_id → the row from step 6)        │
     │  └──────────────────┬───────────────────────────┘
     │                     ▼
     │            2xx ─► advance watermark
@@ -267,10 +280,20 @@ The main loop, every 5 minutes:
 
 **The watermark is the whole reliability model.** It advances only after every
 message in the batch is accounted for. This gives at-least-once delivery — the
-design explicitly accepts duplicates as the safe failure mode, with the intent
-that a `UNIQUE(user_id, gmail_message_id)` constraint absorbs them.
-**⚠ Not yet wired** — that dedup was never implemented, so the safety net is
-absent (techdebt #3).
+design explicitly accepts duplicates as the safe failure mode, and two layers
+absorb them. The orchestrator's step 0 checks `messages.gmail_message_id`
+before the parser runs, so a replayed message costs no LLM calls and writes no
+second `events` row. Below that, `db/inbox.ts` `recordMessage()` is
+idempotent by construction: inserts are `ON CONFLICT DO NOTHING` on the natural
+keys, and `threads.message_count` / `last_message_at` are **recomputed from
+`messages` rows inside the same D1 batch, never incremented**, so even a
+replay that slipped past step 0 can't drift them. (Closes techdebt #3.)
+
+Step 0 is a check-then-write, not a constraint-only design, but the
+Orchestrator is a singleton per deployment (techdebt #5) so the two halves
+can't interleave for the same user today. If the DO is ever sharded per user
+that property still holds; sharding any finer would need the check folded
+into the batch.
 
 `parse_failures` resolves a real tension: if a malformed email crashes the parser
 forever, the watermark pins and **every subsequent email is blocked behind it** —
@@ -283,6 +306,22 @@ _that_ returns 5xx, because at that point pinning is genuinely correct.
 `StatusTrackerAgent` is stateless because the Orchestrator hands it the prior
 status read from D1. This keeps all state in one place and makes the tracker a
 pure function of `(parsed, previousStatus)`.
+
+### Thread binding rule
+
+A `threads` row is bound to an application on first sight and **never
+rebound**. Later messages in the same Gmail thread resolve to that application
+directly (step 2), skipping company resolution — the thread is a stronger
+signal than one message's parse, which might spell "Northwind" as "Northwind
+Design" and would otherwise fork a second application. The corollary: a
+low-confidence parse on a _known_ thread ("Sounds good, see you Tuesday") is
+still recorded and still counts toward the thread; only an _unknown_ thread
+with a low-confidence parse is dropped, exactly as before.
+
+Only the cron path carries `gmailMessageId` + `gmailThreadId`. Without both
+(the Cloudflare Email Workers path, techdebt #14) the pipeline runs unchanged
+but records no inbox row — `inboxInputFromEnvelope()` returns null and
+`events.message_id` stays NULL.
 
 ---
 
@@ -301,11 +340,17 @@ users (Clerk id)
   │             │  status + funnel_rank, welded by CHECK constraint
   │             │
   │             ├──< events      audit trail: what changed, when, why
-  │             └──< threads ──< messages    (⚠ never written — techdebt #7)
+  │             │                  message_id → the message that caused it
+  │             └──< threads      one per Gmail thread; bound to its
+  │                    │            application on first sight, never rebound
+  │                    │            message_count + last_message_at derived
+  │                    │            from messages (recomputed, never bumped)
+  │                    │            summary: still unwritten — inbox PR B
+  │                    └──< messages   snippet only, no body (privacy §1)
+  │                                    UNIQUE(user, gmail_message_id) = dedup
   │
   ├──< user_summaries     1:1 per user (derived cache — safe to truncate);
-  │                         distinct from threads.summary (per-thread, still
-  │                         unwritten — techdebt #7)
+  │                         distinct from threads.summary (per-thread)
   │
   └──< parse_failures     dead letter
 ```
@@ -351,10 +396,12 @@ Applications (renamed from Inbox and Companies; the `ViewKey` values remain
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
   Gmail OAuth ✓                          AI Inbox / Applications UI (mock)
-  Cron poll ✓                            threads/messages tables ✓ (empty)
-  Agent pipeline ✓                       /applications DO endpoint (no caller —
-  D1 writes ✓                              superseded by /api/overview for the
-  Overview UI ✓ (real D1 reads)            dashboard's read path; left in place)
+  Cron poll ✓                            threads.summary (per-thread AI
+  Agent pipeline ✓                         summary — inbox PR B)
+  D1 writes ✓ (incl. threads/messages)   GET /api/inbox read path (PR C)
+  Overview UI ✓ (real D1 reads)          /applications DO endpoint (no caller —
+                                           superseded by /api/overview for the
+                                           dashboard's read path; left in place)
                     ╲                   ╱
                      ╲                 ╱
                       ▼               ▼
@@ -397,9 +444,9 @@ Three issues are architectural rather than merely buggy:
    commits to metadata-only, then asks an LLM to determine application status
    from a subject line and sender alone. "Thanks for applying to Northwind —
    next steps" is genuinely ambiguous between _applied_ and _interviewing_, and
-   no prompt engineering fixes missing input. `snippet` is already fetched and
-   discarded — wiring it through is the cheap partial fix that stays inside the
-   privacy stance. (techdebt #2)
+   no prompt engineering fixes missing input. `snippet` (~100 chars) is now
+   forwarded as the parser's `body` — the cheap partial fix that stays inside
+   the privacy stance. It is still not a body. (techdebt #2, partially)
 
 2. **The DO singletons make this single-tenant-shaped.** `idFromName('watcher')`
    and `idFromName('main')` are global, so every user's email serializes through
@@ -431,3 +478,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-09 | Overview trimmed to beta scope: removed Upcoming/Needs-a-nudge cards and the unsound `pastApplied` stat line (§6). Added a cron-coalesced, cached AI summary card ("The story so far") backed by new `lib/overview-summary.ts` and `user_summaries` (migration `0003_overview_summary.sql`) — see §2, "The Overview summary". Middot (`·`) separators removed repo-wide from `apps/web/src` and recorded as a UI convention (`CLAUDE.md`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2026-09-10 | Sign-out implemented (§3, "Session termination"). New `UserMenu` accessible dropdown (`apps/web/src/app/dashboard/_components/UserMenu.tsx`) replaces the static sidebar `.side-footer`, calling `useClerk().signOut({ redirectUrl: '/' })`. A second `<SignOutButton redirectUrl="/">` entry point was added to `/settings`. `<ClerkProvider afterSignOutUrl="/">` added as a fallback for sign-out paths this app doesn't initiate. Gmail connection and `apps/agents` untouched by design — auth and inbox integration stay separate flows. The sidebar's standalone Settings nav item was folded into that menu, so `/settings` is now reached only from the account dropdown. Dashboard nav renamed for the beta: Inbox -> AI Inbox, Companies -> Applications (user-facing labels and page titles only; the `ViewKey` union, the `InboxView`/`CompaniesView` components and the `_data` modules keep their existing identifiers). The landing page's illustrative dashboard preview tab was renamed to match. `/settings` restyled onto the dashboard's paper palette: inline styles replaced by a scoped `settings.css`, using the global `:root` tokens from `landing.css` and overriding only `--ink-mute`/`--radius-sm` (which differ between `:root` and `dashboard.css`) plus `--line-2` (dashboard-only). |
 | 2026-09-10 | Web typography moved to a native system font stack. `--f-body`/`--f-display`/`--f-mono` now resolve to the viewer's OS UI font via a new `--f-ui` token in `landing.css` `:root`; Instrument Serif, Newsreader and JetBrains Mono dropped from `next/font`. Caveat is retained as the only webfont (brand script accents) and remains owned solely by `layout.tsx` — `--f-script` must not be redeclared in CSS or it collides with next/font's generated family at equal specificity. `dashboard.css` no longer redeclares the font tokens; they inherit from `:root`. Display headings retuned for sans optics (weight 600–700, tighter tracking, display-size italics converted to color contrast) and stat figures set in `tabular-nums`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 2026-09-13 | AI Inbox ingestion (PR A of three; §4 steps 0/2/3/6, "Thread binding rule", §5). `threads` and `messages` are now written by the orchestrator via `apps/agents/src/db/inbox.ts` — one transactional D1 batch that ensures the thread, inserts the message, and recomputes `message_count`/`last_message_at` from rows. Migration `0004_inbox.sql` adds `threads.last_message_at` (the future Inbox sort key) and a `(user_id, last_message_at DESC, id DESC)` keyset index. `gmail/client.ts` now reads `internalDate` → `sentAt`; the cron envelope forwards `gmailThreadId`, `snippet`, `sentAt`, and passes the snippet as the parser's `body`. Orchestrator: dedup on `gmail_message_id` before any LLM call, known-thread anchoring of the application, low-confidence replies on known threads recorded instead of dropped, `events.message_id` populated. First tests in `apps/agents` (vitest, `node:sqlite` running the real migrations — `src/__tests__/helpers/d1.ts`). Techdebt #3 and #7 closed, #2 partially. **Deploy order: `migrate:prod` before `turbo deploy`.**                                                                                                                                                                                                                                    |
