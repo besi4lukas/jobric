@@ -1,15 +1,26 @@
-import type { ApplicationRow } from '../../_lib/applications-schema'
+import type {
+  ApplicationRow,
+  ApplicationStatus,
+} from '../../_lib/applications-schema'
 import { emailCountLabel, formatShortDate, threadTime } from '../../_lib/format'
 import { PILL_LABELS, pillStatusFor } from '../../_lib/status'
 import { Logo } from '../Logo'
 import { StatusPill } from '../StatusPill'
+import { StatusSelect } from './StatusSelect'
 
-// Root is an <article>, not a <button> — PR C puts a <select> in here to
-// edit status, and a <select> inside a <button> is invalid HTML.
+// Root is an <article>, not a <button> — the .actions row below puts a
+// <select> in here to edit status, and a <select> inside a <button> is
+// invalid HTML.
 export function ApplicationCard({
   application,
+  pending,
+  error,
+  onChangeStatus,
 }: {
   application: ApplicationRow
+  pending: boolean
+  error: boolean
+  onChangeStatus: (id: string, status: ApplicationStatus) => void
 }) {
   const interview = upcomingInterview(application.interviewAt)
 
@@ -42,6 +53,16 @@ export function ApplicationCard({
               : ''}
         </span>
         <span className="w">{threadTime(application.lastActivityAt)}</span>
+      </div>
+      <div className="actions">
+        <StatusSelect
+          status={application.status}
+          company={application.company}
+          role={application.role}
+          pending={pending}
+          onChange={(status) => onChangeStatus(application.id, status)}
+        />
+        {error && <span className="status-error">Couldn&rsquo;t save</span>}
       </div>
     </article>
   )
