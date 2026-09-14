@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 // Mirrors apps/agents/migrations/0001_schema_v1.sql, 0002_overview.sql,
-// 0003_overview_summary.sql, and 0004_inbox.sql. Keep CHECK constraints,
-// NOT NULL choices, and enum values in sync with SQL.
+// 0003_overview_summary.sql, 0004_inbox.sql, and 0005_applications.sql. Keep
+// CHECK constraints, NOT NULL choices, and enum values in sync with SQL.
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
 export const ApplicationStatusSchema = z.enum([
@@ -26,6 +26,13 @@ export type EventType = z.infer<typeof EventTypeSchema>
 export const EventSourceSchema = z.enum(['gmail', 'system', 'user'])
 export type EventSource = z.infer<typeof EventSourceSchema>
 
+// Who last set applications.status — see migration 0005_applications.sql.
+// 'gmail' = the ingestion pipeline; 'user' = a manual PATCH from the
+// dashboard (routes/applications.ts). The orchestrator treats 'user' as a
+// pin: advanceApplication() in db/applications.ts refuses to overwrite it.
+export const StatusSourceSchema = z.enum(['gmail', 'user'])
+export type StatusSource = z.infer<typeof StatusSourceSchema>
+
 // Locked to the cross-column CHECK in applications (rank can't drift from status).
 export const FUNNEL_RANK_BY_STATUS = {
   closed: 0,
@@ -39,6 +46,14 @@ export type FunnelRank = (typeof FUNNEL_RANK_BY_STATUS)[ApplicationStatus]
 
 export function funnelRankFor(status: ApplicationStatus): FunnelRank {
   return FUNNEL_RANK_BY_STATUS[status]
+}
+
+// event_type uses 'interview' (singular); application_status uses
+// 'interviewing'. Shared between the ingestion pipeline (orchestrator.ts,
+// step 7) and the manual status-pin route (db/applications.ts
+// setApplicationStatusByUser) so both event sources use the same mapping.
+export function eventTypeForStatus(status: ApplicationStatus): EventType {
+  return status === 'interviewing' ? 'interview' : status
 }
 
 // ─── Shared field shapes ─────────────────────────────────────────────────────
@@ -86,6 +101,7 @@ export const ApplicationSchema = z
     roleTitle: z.string().min(1),
     requisitionId: z.string().nullable(),
     status: ApplicationStatusSchema,
+    statusSource: StatusSourceSchema,
     funnelRank: z.number().int().min(0).max(4),
     firstContactAt: isoDateTime,
     lastActivityAt: isoDateTime,
