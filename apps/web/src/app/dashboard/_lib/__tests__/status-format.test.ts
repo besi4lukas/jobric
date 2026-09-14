@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { threadTime } from '../format'
+import { emailCountLabel, threadTime } from '../format'
 import { PILL_LABELS, STATUS_LABELS, pillStatusFor } from '../status'
 
 describe('pillStatusFor', () => {
@@ -60,5 +60,16 @@ describe('threadTime', () => {
 
   it('returns null for garbage', () => {
     expect(threadTime('not a date', now)).toBeNull()
+  })
+})
+
+describe('emailCountLabel', () => {
+  it('is singular for exactly one', () => {
+    expect(emailCountLabel(1)).toBe('1 email')
+  })
+
+  it('is plural otherwise, including zero', () => {
+    expect(emailCountLabel(0)).toBe('0 emails')
+    expect(emailCountLabel(5)).toBe('5 emails')
   })
 })

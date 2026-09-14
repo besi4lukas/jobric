@@ -38,3 +38,8 @@ export function threadTime(iso: string, now: Date = new Date()): string | null {
   }
   return formatShortDate(iso)
 }
+
+// "1 email" / "5 emails" — the Applications card's singular/plural count.
+export function emailCountLabel(n: number): string {
+  return `${n} email${n === 1 ? '' : 's'}`
+}

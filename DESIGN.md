@@ -5,9 +5,10 @@
 > invariant, replaced dependency — update this file in the same change. A
 > changelog is kept at the bottom.
 
-Last updated: 2026-09-14 · reflects `main` @ `9a5e965`, plus this uncommitted
-change (Applications PR A of three: `GET`/`PATCH /api/applications`, the
-manual status pin, migration `0005_applications.sql`)
+Last updated: 2026-09-14 · reflects `main` @ `76a0133` (Applications PR A:
+`GET`/`PATCH /api/applications`, the manual status pin, migration
+`0005_applications.sql`), plus this change (Applications PR B: the web read
+path; §6, §7)
 
 Sections marked **⚠ Not yet wired** describe intended design that is present in
 the schema or code but not connected end-to-end. See [techdebt.md](techdebt.md)
@@ -448,17 +449,19 @@ uses `interview`. `eventTypeForStatus()` in the orchestrator bridges them.
 ## 6. Known design gaps
 
 The intended architecture is coherent. The gap is that it was built as two
-halves that mostly don't touch — **Overview and AI Inbox are now the
-exceptions.** Both fetch a plain D1-reads handler registered ahead of
+halves that mostly don't touch — **all three dashboard tabs are now the
+exceptions.** Each fetches a plain D1-reads handler registered ahead of
 `routeAgentRequest` (§4): `GET /api/overview` via
-`apps/web/src/app/dashboard/_lib/fetch-overview.ts`, and `GET /api/inbox` via
-`_lib/fetch-inbox.ts`, both called from that route's `page.tsx` in one
-`Promise.all`. Every number and line on those tabs traces to a column the
-pipeline actually writes, with explicit empty states for the common
+`apps/web/src/app/dashboard/_lib/fetch-overview.ts`, `GET /api/inbox` via
+`_lib/fetch-inbox.ts`, and `GET /api/applications` via
+`_lib/fetch-applications.ts`, all three called from that route's `page.tsx`
+in one `Promise.all`. Every number and line on these tabs traces to a column
+the pipeline actually writes, with explicit empty states for the common
 "connected, nothing ingested yet" beta case. Applications (renamed from
-Companies; the `ViewKey` value remains `companies`) is the last mock tab —
-`GET`/`PATCH /api/applications` now exist (agents-side, "Applications PR A of
-three" below) but nothing on the web side calls them yet; that's PR B/C.
+Companies; the `ViewKey` value is `applications`) now reads
+`GET /api/applications`; `PATCH /api/applications/:id/status` exists
+agents-side ("Applications PR A of three" below) but has no web caller yet —
+the status-edit control is PR C of this trio.
 
 ### The AI Inbox read path
 
@@ -487,9 +490,10 @@ three" below) but nothing on the web side calls them yet; that's PR B/C.
 
 ### The Applications read/write path
 
-Agents-side only ("Applications PR A of three" — the web tab and its fetch
-helpers are PR B/C, same split as Inbox). Replaces the orchestrator's old
-`/applications` DO endpoint (deleted this PR — it had no caller).
+Agents-side ("Applications PR A of three"; the web tab and its fetch
+helpers are the next subsection, same split as Inbox). Replaces the
+orchestrator's old `/applications` DO endpoint (deleted in PR A — it had no
+caller).
 
 - **`GET /api/applications?limit=&cursor=`** — same shape of decision as
   `/api/inbox`: plain D1 reads registered ahead of `routeAgentRequest`,
@@ -515,26 +519,38 @@ helpers are PR B/C, same split as Inbox). Replaces the orchestrator's old
   INSERT, then the same row-shaped SELECT `GET` uses, so PATCH's response
   and a subsequent list page can never disagree about the row's shape.
 
+### Applications — web read path
+
+Same shape as AI Inbox, with one addition. `GET /api/applications` via
+`_lib/fetch-applications.ts` (server-only) serves the first page from
+`page.tsx`; "Load more" goes through the Server Action
+`_actions/applications.ts` (`loadApplicationsPage`); `ApplicationList` is the
+client-seeded list, keyset-paginated on `(lastActivityAt, id)` like Inbox.
+The addition is layout: a `ViewToggle` switches between a `<table>` (the
+default) and the old card grid, persisted client-side in `localStorage`
+(`jobric.applications.view`) and read post-mount in a `useEffect` — the page
+is SSR'd without it, so reading during the initial `useState` would
+hydrate-mismatch. `_lib/applications-schema.ts` defaults `statusSource`
+(`'gmail'`), `interviewAt` (`null`), and `nextCursor` the same way
+`inbox-schema.ts` defaults `summaryState`, so a web deploy racing ahead of
+the Worker degrades instead of throwing. `statusSource: 'user'` renders a
+"set by you" note next to the pill, but nothing yet lets the user set it —
+status editing is Applications PR C, stacked on this branch.
+
 ```
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
-  Gmail OAuth ✓                          Applications UI (mock —
-  Cron poll ✓                              _data/companies.ts; web PR B/C
-  Agent pipeline ✓                         calls GET/PATCH /api/applications)
-  D1 writes ✓ (incl. threads/messages)
+  Gmail OAuth ✓                          Applications status edit (PR C —
+  Cron poll ✓                              PATCH has no web caller yet;
+  Agent pipeline ✓                         statusSource stays 'gmail' until
+  D1 writes ✓ (incl. threads/messages)     then)
   Thread summaries ✓ (cron, cached)
   Overview UI ✓ (real D1 reads)
   AI Inbox UI ✓ (real D1 reads, paged)
   GET/PATCH /api/applications ✓
-    (agents-side; no web caller yet)
-                    ╲                   ╱
-                     ╲                 ╱
-                      ▼               ▼
-                   ┌───────────────────┐
-                   │  THE MISSING SEAM │
-                   │  (one tab left —  │
-                   │   Applications)   │
-                   └───────────────────┘
+    (agents-side)
+  Applications UI ✓ (real D1 reads,
+    paged, table/grid toggle)
 ```
 
 Two fixes landed alongside the new route because Overview surfaced them
@@ -607,3 +623,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-13 | AI Inbox summaries (PR B of three; §2 "The thread summary", §5). New `apps/agents/src/lib/thread-summary.ts` writes `threads.summary` / `summary_updated_at` from the cron tick, gated on `newCount > 0` per account alongside the Overview summary. Staleness is implicit (`summary_updated_at < last_message_at`, stamped with the selected `last_message_at` rather than `now`); at most 10 threads per tick, newest first; newest 15 messages per thread in chronological order; failures leave the row untouched. No migration. Reuses `sanitizeSummaryText` from `overview-summary.ts`. 13 tests mock only the `ai` boundary and drive the module through `recordMessage()` on the real migrations. Read path and UI remain PR C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 2026-09-13 | AI Inbox read path (PR C of three; §6 "The AI Inbox read path"). New `GET /api/inbox?limit=&cursor=` (`apps/agents/src/routes/inbox.ts`): plain D1 reads, keyset cursor on `(last_message_at, id)` base64url-encoded, `limit + 1` probe for `nextCursor`, clamp 1–50, 400 on bad input. Web: `_lib/inbox-schema.ts` + `_lib/fetch-inbox.ts` (server-only), first page fetched in `page.tsx` alongside Overview, later pages via Server Action `_actions/inbox.ts`; `ThreadList` is now a client component with "Load more"; `InboxView` gains Overview's three empty states; new `_lib/status.ts` shared with Recent Activity; `threadTime()` in `_lib/format.ts`. `_data/inbox.ts` and the mock `Thread` type deleted. First tests in `apps/web` (vitest, pure TS: schema defaults, status mapping, `threadTime`). Agents: 14 route tests incl. a new-mail-between-pages case. No migration; nothing to run before deploy. Techdebt #1 closed for Inbox (Applications remains).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | 2026-09-14 | Applications PR A of three, agents-side only (§4 step 3b + "Manual status pin", §5, §6 "The Applications read/write path"). Migration `0005_applications.sql` adds `applications.status_source` (`'gmail'` or `'user'`) and widens the activity index to `(user_id, last_activity_at DESC, id DESC)`. New `apps/agents/src/db/applications.ts`: `findApplicationForIngest`, `advanceApplication` (the pin-guarded status UPDATE, CASE'd on `status_source` in SQL), `setApplicationStatusByUser` (the manual pin — one `db.batch`: UPDATE, conditional `events` INSERT, shared readback SELECT). New routes `GET /api/applications?limit=&cursor=` and `PATCH /api/applications/:id/status` (`apps/agents/src/routes/applications.ts`), registered in `index.ts` ahead of `routeAgentRequest`; `PATCH` added to the CORS preflight `Allow-Methods`. Cursor codec extracted from `routes/inbox.ts` into `lib/keyset-cursor.ts`, shared by both routes (`routes/inbox.ts` re-exports its two names for its existing tests). `eventTypeForStatus()` moved from `orchestrator.ts` to `db/schema.ts` so both write paths (pipeline and PATCH) share one enum mapping. Orchestrator: step 2's two application lookups now go through `findApplicationForIngest` so `statusSource` is known; new step 3b skips the StatusTracker call entirely on a pinned application (no LLM spend on a result that couldn't land) while still recording the message and bumping `last_activity_at`/`interview_at`; step 5's UPDATE now goes through `advanceApplication`. `OrchestratorAgent`'s old `/applications` endpoint (`getApplications()`, no caller) is deleted. 31 new tests (agents db and routes test suites for applications), including a keyset-under-edit case. Web (Applications tab UI, its fetch helpers) is untouched — that's PR B/C, same split as Inbox. **Deploy order: `pnpm --filter=@jobric/agents migrate:prod` before `pnpm turbo deploy --filter=@jobric/agents`.** |
+| 2026-09-14 | Applications web read path (PR B of three; §6 "Applications — web read path"). Web-only: `_lib/applications-schema.ts` + `_lib/fetch-applications.ts` (server-only) against `GET /api/applications` (PR A, `feat/applications-api`, not yet deployed), first page fetched in `page.tsx` alongside Overview/Inbox, later pages via Server Action `_actions/applications.ts`. `_components/companies/{CompaniesView,CompanyCard}.tsx` renamed to `_components/applications/{ApplicationsView,ApplicationCard}.tsx` (`git mv`); new `ApplicationList` (client, keyset "Load more" like `ThreadList`), `ApplicationsTable`, and `ViewToggle` — table is the default layout, grid the alternative, preference persisted in `localStorage` (`_lib/view-mode.ts`) and read post-mount to avoid a hydration mismatch. `_data/companies.ts` and the mock `Company` type deleted. `emailCountLabel()` added to `_lib/format.ts`. First tests for the new schema, `parseViewMode`, and `emailCountLabel`. No migration; nothing to run before deploy. Status editing (`statusSource: 'user'`) is Applications PR C, stacked on this branch. Techdebt #1 closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
