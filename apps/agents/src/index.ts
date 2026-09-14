@@ -8,6 +8,10 @@ import {
 } from './routes/email-accounts'
 import { handleOverview } from './routes/overview'
 import { handleInbox } from './routes/inbox'
+import {
+  handleApplicationsList,
+  handleApplicationStatusPatch,
+} from './routes/applications'
 import { runScheduledPoll } from './cron'
 import type {
   ExportedHandler,
@@ -32,7 +36,7 @@ export default {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         },
       })
@@ -75,6 +79,19 @@ export default {
     }
     if (url.pathname === '/api/inbox') {
       return handleInbox(req, env, userId)
+    }
+    if (url.pathname === '/api/applications') {
+      return handleApplicationsList(req, env, userId)
+    }
+    const applicationStatusMatch =
+      /^\/api\/applications\/([^/]+)\/status$/.exec(url.pathname)
+    if (applicationStatusMatch) {
+      return handleApplicationStatusPatch(
+        req,
+        env,
+        userId,
+        decodeURIComponent(applicationStatusMatch[1] as string),
+      )
     }
 
     // Forward the verified userId to the agent. Props are private in the

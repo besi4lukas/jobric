@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import type { Env } from '../types'
 import { ApplicationStatusSchema } from '../db/schema'
+import { decodeCursor, encodeCursor } from '../lib/keyset-cursor'
+
+// Cursor codec re-exported for backward compatibility — it moved to
+// lib/keyset-cursor.ts (shared with routes/applications.ts) but
+// routes/__tests__/inbox.test.ts imports both names from this module.
+export { decodeCursor, encodeCursor }
 
 // HTTP route for the dashboard AI Inbox tab: GET /api/inbox?limit=&cursor=
 //
@@ -45,25 +51,6 @@ export const InboxResponseSchema = z.object({
   nextCursor: z.string().nullable(),
 })
 export type InboxResponse = z.infer<typeof InboxResponseSchema>
-
-type Cursor = { t: string; id: string }
-
-const CursorSchema = z.object({ t: z.string().min(1), id: z.string().min(1) })
-
-export function encodeCursor(cursor: Cursor): string {
-  return base64UrlEncode(JSON.stringify(cursor))
-}
-
-// null for anything that isn't a cursor we produced — the caller 400s.
-export function decodeCursor(value: string): Cursor | null {
-  try {
-    const parsed: unknown = JSON.parse(base64UrlDecode(value))
-    const result = CursorSchema.safeParse(parsed)
-    return result.success ? result.data : null
-  } catch {
-    return null
-  }
-}
 
 type ThreadRow = {
   id: string
@@ -167,20 +154,4 @@ function parseLimit(raw: string | null): number | null {
   const n = Number(raw)
   if (n < 1 || n > MAX_LIMIT) return null
   return n
-}
-
-// Workers and Node both have btoa/atob; TextEncoder round-trips non-ASCII
-// (thread ids are UUIDs and timestamps are ISO, but don't rely on it).
-function base64UrlEncode(text: string): string {
-  const bytes = new TextEncoder().encode(text)
-  let binary = ''
-  for (const byte of bytes) binary += String.fromCharCode(byte)
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
-
-function base64UrlDecode(value: string): string {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/')
-  const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4))
-  const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
 }
