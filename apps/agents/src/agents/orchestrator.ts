@@ -10,13 +10,18 @@ import {
   type StatusChange,
   type TrackEnvelope,
 } from '../types'
-import { funnelRankFor, type EventType } from '../db/schema'
+import { eventTypeForStatus, funnelRankFor, type EventType } from '../db/schema'
 import {
   findThreadByGmailId,
   hasProcessedMessage,
   inboxInputFromEnvelope,
   recordMessage,
 } from '../db/inbox'
+import {
+  advanceApplication,
+  findApplicationForIngest,
+  type ApplicationForIngest,
+} from '../db/applications'
 
 // ─── OrchestratorAgent ─────────────────────────────────────────────────────────
 // Coordinates the pipeline: dedup → parse email → resolve thread/company →
@@ -30,10 +35,6 @@ export class OrchestratorAgent extends Agent<Env> {
 
     if (url.pathname.endsWith('/process-email')) {
       return this.processEmail(req)
-    }
-
-    if (url.pathname.endsWith('/applications')) {
-      return this.getApplications(req)
     }
 
     return new Response('not found', { status: 404 })
@@ -84,16 +85,15 @@ export class OrchestratorAgent extends Agent<Env> {
         return Response.json({ skipped: true, reason: 'low confidence' })
       }
 
-      let existing: { id: string; status: ApplicationStatus } | null = null
+      let existing: ApplicationForIngest | null = null
       let companyId: string | null = null
       const requisitionId = parsed.requisitionId ?? null
 
       if (knownThread) {
-        existing = await this.env.DB.prepare(
-          `SELECT id, status FROM applications WHERE id = ? LIMIT 1`,
+        existing = await findApplicationForIngest(
+          this.env.DB,
+          knownThread.applicationId,
         )
-          .bind(knownThread.applicationId)
-          .first<{ id: string; status: ApplicationStatus }>()
         // applications → threads is ON DELETE CASCADE, so a thread whose
         // application vanished shouldn't exist. Fail loud rather than
         // re-create the application under a guessed company.
@@ -110,14 +110,17 @@ export class OrchestratorAgent extends Agent<Env> {
           normalizedName,
           now,
         )
-        existing = await this.env.DB.prepare(
-          `SELECT id, status FROM applications
+        const match = await this.env.DB.prepare(
+          `SELECT id FROM applications
            WHERE user_id = ? AND company_id = ? AND role_title = ?
              AND COALESCE(requisition_id, '') = COALESCE(?, '')
            LIMIT 1`,
         )
           .bind(userId, companyId, parsed.role, requisitionId)
-          .first<{ id: string; status: ApplicationStatus }>()
+          .first<{ id: string }>()
+        existing = match
+          ? await findApplicationForIngest(this.env.DB, match.id)
+          : null
       }
 
       // ── Step 3: Low-confidence reply on a known thread ────────────────────
@@ -136,6 +139,37 @@ export class OrchestratorAgent extends Agent<Env> {
         this.log('Recorded low-confidence message on known thread', {
           applicationId: existing.id,
           ...recorded,
+        })
+        return Response.json({
+          applicationId: existing.id,
+          parsed,
+          statusChange: null,
+          thread: recorded,
+        })
+      }
+
+      // ── Step 3b: application pinned by a manual status edit ───────────────
+      // A dashboard PATCH (routes/applications.ts) sets status_source='user'
+      // to say "don't touch status until I edit it again." Calling
+      // StatusTracker here would spend an LLM call on a status change
+      // advanceApplication() would refuse to write anyway — so skip the
+      // call, not just the write. The mail still ingests: last_activity_at
+      // moves and interview_at can still pick up a new date; only
+      // status/funnel_rank stay frozen. No `events` row — nothing changed
+      // for the audit trail to record.
+      if (existing && existing.statusSource === 'user') {
+        const interviewAt = parseInterviewDate(parsed.interviewDate)
+        await advanceApplication(this.env.DB, {
+          id: existing.id,
+          newStatus: existing.status,
+          now,
+          interviewAt,
+        })
+        const recorded = inbox
+          ? await recordMessage(this.env.DB, existing.id, inbox)
+          : null
+        this.log('Status pinned by user, skipping tracker', {
+          applicationId: existing.id,
         })
         return Response.json({
           applicationId: existing.id,
@@ -166,14 +200,17 @@ export class OrchestratorAgent extends Agent<Env> {
       const interviewAt = parseInterviewDate(parsed.interviewDate)
 
       if (existing) {
-        await this.env.DB.prepare(
-          `UPDATE applications
-             SET status = ?, funnel_rank = ?, last_activity_at = ?,
-                 interview_at = COALESCE(?, interview_at)
-           WHERE id = ?`,
-        )
-          .bind(newStatus, funnelRank, now, interviewAt, applicationId)
-          .run()
+        // existing.statusSource is 'gmail' here — the 'user' case already
+        // returned in step 3b above — so advanceApplication()'s pin guard
+        // is a no-op on this path, not load-bearing. Still routed through
+        // it rather than a bare UPDATE so there is exactly one place that
+        // knows how to write a status change.
+        await advanceApplication(this.env.DB, {
+          id: applicationId,
+          newStatus,
+          now,
+          interviewAt,
+        })
       } else {
         // Unreachable with a known thread (existing is always set on that
         // branch above), so companyId was resolved. Guard for the compiler
@@ -318,28 +355,6 @@ export class OrchestratorAgent extends Agent<Env> {
     return id
   }
 
-  // ── Read tracked applications (for the frontend dashboard) ──────────────────
-  private async getApplications(req: Request): Promise<Response> {
-    const userId = req.headers.get('X-User-Id')
-    if (!userId) {
-      return new Response('unauthorized', { status: 401 })
-    }
-
-    const { results } = await this.env.DB.prepare(
-      `SELECT a.id, a.role_title, a.status, a.funnel_rank,
-              a.first_contact_at, a.last_activity_at,
-              c.name AS company_name
-       FROM applications a
-       JOIN companies c ON c.id = a.company_id
-       WHERE a.user_id = ?
-       ORDER BY a.last_activity_at DESC`,
-    )
-      .bind(userId)
-      .all()
-
-    return Response.json(results)
-  }
-
   private async callAgent<T>(
     namespace: DurableObjectNamespace,
     instanceName: string,
@@ -367,14 +382,9 @@ export class OrchestratorAgent extends Agent<Env> {
   }
 }
 
-// event_type uses 'interview' (singular); application_status uses 'interviewing'.
-function eventTypeForStatus(status: ApplicationStatus): EventType {
-  return status === 'interviewing' ? 'interview' : status
-}
-
-// Inverse of eventTypeForStatus() — for rendering transition lines like
-// "replied → interviewing" from a stored event_type back to the application
-// status it corresponds to.
+// Inverse of eventTypeForStatus() (db/schema.ts) — for rendering transition
+// lines like "replied → interviewing" from a stored event_type back to the
+// application status it corresponds to.
 export function statusForEventType(eventType: EventType): ApplicationStatus {
   return eventType === 'interview' ? 'interviewing' : eventType
 }
