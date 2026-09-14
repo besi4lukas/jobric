@@ -35,7 +35,7 @@ export function ApplicationsTable({
               Req #
             </th>
             <th scope="col">Company</th>
-            <th scope="col" className="col-opt">
+            <th scope="col" className="col-opt align-right">
               Emails
             </th>
             <th scope="col">Status</th>
