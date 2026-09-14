@@ -5,9 +5,9 @@
 > invariant, replaced dependency — update this file in the same change. A
 > changelog is kept at the bottom.
 
-Last updated: 2026-09-10 · reflects branch `jobric_013` @ `c476f4e`, plus this
-uncommitted change (sign-out feature: dashboard account menu + `/settings`
-sign-out button; Settings folded into that menu; nav renamed)
+Last updated: 2026-09-14 · reflects branch `jobric_013` @ `c476f4e`, plus the
+sign-out feature, AI Inbox PRs A–C (2026-09-13), and Applications PR B — the
+web read path (this change; §6, §7)
 
 Sections marked **⚠ Not yet wired** describe intended design that is present in
 the schema or code but not connected end-to-end. See [techdebt.md](techdebt.md)
@@ -418,15 +418,17 @@ uses `interview`. `eventTypeForStatus()` in the orchestrator bridges them.
 ## 6. Known design gaps
 
 The intended architecture is coherent. The gap is that it was built as two
-halves that mostly don't touch — **Overview and AI Inbox are now the
-exceptions.** Both fetch a plain D1-reads handler registered ahead of
+halves that mostly don't touch — **all three dashboard tabs are now the
+exceptions.** Each fetches a plain D1-reads handler registered ahead of
 `routeAgentRequest` (§4): `GET /api/overview` via
-`apps/web/src/app/dashboard/_lib/fetch-overview.ts`, and `GET /api/inbox` via
-`_lib/fetch-inbox.ts`, both called from that route's `page.tsx` in one
-`Promise.all`. Every number and line on those tabs traces to a column the
-pipeline actually writes, with explicit empty states for the common
+`apps/web/src/app/dashboard/_lib/fetch-overview.ts`, `GET /api/inbox` via
+`_lib/fetch-inbox.ts`, and `GET /api/applications` via
+`_lib/fetch-applications.ts`, all three called from that route's `page.tsx`
+in one `Promise.all`. Every number and line on these tabs traces to a column
+the pipeline actually writes, with explicit empty states for the common
 "connected, nothing ingested yet" beta case. Applications (renamed from
-Companies; the `ViewKey` value remains `companies`) is the last mock tab.
+Companies; the `ViewKey` value is `applications`) still has no status-edit
+control — that's PR C of this trio.
 
 ### The AI Inbox read path
 
@@ -453,24 +455,36 @@ Companies; the `ViewKey` value remains `companies`) is the last mock tab.
   place the Worker's `application_status` enum meets the dashboard's pill
   classes; Recent Activity uses it too.
 
+### Applications — web read path
+
+Same shape as AI Inbox, with one addition. `GET /api/applications` via
+`_lib/fetch-applications.ts` (server-only) serves the first page from
+`page.tsx`; "Load more" goes through the Server Action
+`_actions/applications.ts` (`loadApplicationsPage`); `ApplicationList` is the
+client-seeded list, keyset-paginated on `(lastActivityAt, id)` like Inbox.
+The addition is layout: a `ViewToggle` switches between a `<table>` (the
+default) and the old card grid, persisted client-side in `localStorage`
+(`jobric.applications.view`) and read post-mount in a `useEffect` — the page
+is SSR'd without it, so reading during the initial `useState` would
+hydrate-mismatch. `_lib/applications-schema.ts` defaults `statusSource`
+(`'gmail'`), `interviewAt` (`null`), and `nextCursor` the same way
+`inbox-schema.ts` defaults `summaryState`, so a web deploy racing ahead of
+the Worker degrades instead of throwing. `statusSource: 'user'` renders a
+"set by you" note next to the pill, but nothing yet lets the user set it —
+status editing is Applications PR C, stacked on this branch.
+
 ```
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
-  Gmail OAuth ✓                          Applications UI (mock —
-  Cron poll ✓                              _data/companies.ts)
-  Agent pipeline ✓                       /applications DO endpoint (no caller —
-  D1 writes ✓ (incl. threads/messages)     superseded by /api/overview and
-  Thread summaries ✓ (cron, cached)        /api/inbox; left in place)
-  Overview UI ✓ (real D1 reads)
+  Gmail OAuth ✓                          Applications status edit (PR C —
+  Cron poll ✓                              statusSource stays 'gmail' until
+  Agent pipeline ✓                         then)
+  D1 writes ✓ (incl. threads/messages)   /applications DO endpoint (no caller —
+  Thread summaries ✓ (cron, cached)        superseded by /api/overview and
+  Overview UI ✓ (real D1 reads)            /api/inbox; left in place)
   AI Inbox UI ✓ (real D1 reads, paged)
-                    ╲                   ╱
-                     ╲                 ╱
-                      ▼               ▼
-                   ┌───────────────────┐
-                   │  THE MISSING SEAM │
-                   │  (one tab left —  │
-                   │   Applications)   │
-                   └───────────────────┘
+  Applications UI ✓ (real D1 reads,
+    paged, table/grid toggle)
 ```
 
 Two fixes landed alongside the new route because Overview surfaced them
@@ -542,3 +556,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-13 | AI Inbox ingestion (PR A of three; §4 steps 0/2/3/6, "Thread binding rule", §5). `threads` and `messages` are now written by the orchestrator via `apps/agents/src/db/inbox.ts` — one transactional D1 batch that ensures the thread, inserts the message, and recomputes `message_count`/`last_message_at` from rows. Migration `0004_inbox.sql` adds `threads.last_message_at` (the future Inbox sort key) and a `(user_id, last_message_at DESC, id DESC)` keyset index. `gmail/client.ts` now reads `internalDate` → `sentAt`; the cron envelope forwards `gmailThreadId`, `snippet`, `sentAt`, and passes the snippet as the parser's `body`. Orchestrator: dedup on `gmail_message_id` before any LLM call, known-thread anchoring of the application, low-confidence replies on known threads recorded instead of dropped, `events.message_id` populated. First tests in `apps/agents` (vitest, `node:sqlite` running the real migrations — `src/__tests__/helpers/d1.ts`). Techdebt #3 and #7 closed, #2 partially. **Deploy order: `migrate:prod` before `turbo deploy`.**                                                                                                                                                                                                                                    |
 | 2026-09-13 | AI Inbox summaries (PR B of three; §2 "The thread summary", §5). New `apps/agents/src/lib/thread-summary.ts` writes `threads.summary` / `summary_updated_at` from the cron tick, gated on `newCount > 0` per account alongside the Overview summary. Staleness is implicit (`summary_updated_at < last_message_at`, stamped with the selected `last_message_at` rather than `now`); at most 10 threads per tick, newest first; newest 15 messages per thread in chronological order; failures leave the row untouched. No migration. Reuses `sanitizeSummaryText` from `overview-summary.ts`. 13 tests mock only the `ai` boundary and drive the module through `recordMessage()` on the real migrations. Read path and UI remain PR C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 2026-09-13 | AI Inbox read path (PR C of three; §6 "The AI Inbox read path"). New `GET /api/inbox?limit=&cursor=` (`apps/agents/src/routes/inbox.ts`): plain D1 reads, keyset cursor on `(last_message_at, id)` base64url-encoded, `limit + 1` probe for `nextCursor`, clamp 1–50, 400 on bad input. Web: `_lib/inbox-schema.ts` + `_lib/fetch-inbox.ts` (server-only), first page fetched in `page.tsx` alongside Overview, later pages via Server Action `_actions/inbox.ts`; `ThreadList` is now a client component with "Load more"; `InboxView` gains Overview's three empty states; new `_lib/status.ts` shared with Recent Activity; `threadTime()` in `_lib/format.ts`. `_data/inbox.ts` and the mock `Thread` type deleted. First tests in `apps/web` (vitest, pure TS: schema defaults, status mapping, `threadTime`). Agents: 14 route tests incl. a new-mail-between-pages case. No migration; nothing to run before deploy. Techdebt #1 closed for Inbox (Applications remains).                                                                                                                                                                                                                                                                                                                                       |
+| 2026-09-14 | Applications web read path (PR B of three; §6 "Applications — web read path"). Web-only: `_lib/applications-schema.ts` + `_lib/fetch-applications.ts` (server-only) against `GET /api/applications` (PR A, `feat/applications-api`, not yet deployed), first page fetched in `page.tsx` alongside Overview/Inbox, later pages via Server Action `_actions/applications.ts`. `_components/companies/{CompaniesView,CompanyCard}.tsx` renamed to `_components/applications/{ApplicationsView,ApplicationCard}.tsx` (`git mv`); new `ApplicationList` (client, keyset "Load more" like `ThreadList`), `ApplicationsTable`, and `ViewToggle` — table is the default layout, grid the alternative, preference persisted in `localStorage` (`_lib/view-mode.ts`) and read post-mount to avoid a hydration mismatch. `_data/companies.ts` and the mock `Company` type deleted. `emailCountLabel()` added to `_lib/format.ts`. First tests for the new schema, `parseViewMode`, and `emailCountLabel`. No migration; nothing to run before deploy. Status editing (`statusSource: 'user'`) is Applications PR C, stacked on this branch. Techdebt #1 closed.                                                                                                                                                                   |

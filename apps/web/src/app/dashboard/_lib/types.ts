@@ -7,14 +7,3 @@ export type StatusKey =
   | 'offer'
   | 'rejected'
   | 'final'
-
-export type Company = {
-  logo: string
-  name: string
-  role: string
-  status: StatusKey
-  statusLabel: string
-  emails: number
-  last: string
-  when: string
-}

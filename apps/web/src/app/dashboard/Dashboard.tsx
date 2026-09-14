@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import type { ApplicationsResponse } from './_lib/applications-schema'
 import type { InboxResponse } from './_lib/inbox-schema'
 import type { OverviewResponse } from './_lib/overview-schema'
-import { CompaniesView } from './_components/companies/CompaniesView'
+import { ApplicationsView } from './_components/applications/ApplicationsView'
 import { InboxView } from './_components/inbox/InboxView'
 import { OverviewView } from './_components/overview/OverviewView'
 import { Sidebar } from './_components/Sidebar'
@@ -18,6 +19,7 @@ type DashboardProps = {
   userInitial: string
   overview: OverviewResponse | null
   inbox: InboxResponse | null
+  applications: ApplicationsResponse | null
 }
 
 export function Dashboard({
@@ -26,6 +28,7 @@ export function Dashboard({
   userInitial,
   overview,
   inbox,
+  applications,
 }: DashboardProps) {
   const [view, setView] = useState<ViewKey>('overview')
   const title = TITLES[view]
@@ -51,7 +54,12 @@ export function Dashboard({
                 connected={overview?.account.connected ?? null}
               />
             )}
-            {view === 'applications' && <CompaniesView />}
+            {view === 'applications' && (
+              <ApplicationsView
+                applications={applications}
+                connected={overview?.account.connected ?? null}
+              />
+            )}
           </div>
         </main>
       </div>

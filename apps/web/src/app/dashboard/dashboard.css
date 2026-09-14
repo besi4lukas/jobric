@@ -703,12 +703,13 @@
   color: var(--ink-mute);
 }
 
-/* ============ COMPANIES GRID ============ */
+/* ============ APPLICATIONS ============ */
 .dashboard-app .view-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  gap: 12px;
 }
 .dashboard-app .view-actions .meta {
   font-family: var(--f-mono);
@@ -716,34 +717,109 @@
   color: var(--ink-mute);
 }
 
-.dashboard-app .companies-grid {
+.dashboard-app .view-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.dashboard-app .view-toggle button {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  padding: 6px 12px;
+  background: var(--paper);
+  border: none;
+}
+.dashboard-app .view-toggle button:not(:last-child) {
+  border-right: 1px solid var(--line);
+}
+.dashboard-app .view-toggle button:hover {
+  color: var(--ink);
+}
+.dashboard-app .view-toggle button[aria-pressed='true'] {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+
+.dashboard-app .table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.dashboard-app .applications-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.dashboard-app .applications-table th {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mute);
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.dashboard-app .applications-table td {
+  font-size: 13px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.dashboard-app .applications-table tbody tr:hover {
+  background: var(--paper-2);
+}
+.dashboard-app .applications-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.dashboard-app .applications-table td.mono {
+  font-family: var(--f-mono);
+}
+.dashboard-app .applications-table .tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-app .applications-table .align-right {
+  text-align: right;
+}
+.dashboard-app .company-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dashboard-app .status-note {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  margin-left: 6px;
+}
+
+.dashboard-app .applications-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 14px;
 }
-.dashboard-app .company-card {
+.dashboard-app .application-card {
+  display: block;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px;
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease;
-  cursor: pointer;
-  text-align: left;
+  transition: border-color 0.15s ease;
   width: 100%;
 }
-.dashboard-app .company-card:hover {
+.dashboard-app .application-card:hover {
   border-color: var(--accent);
-  transform: translateY(-2px);
 }
-.dashboard-app .company-card .top {
+.dashboard-app .application-card .top {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   margin-bottom: 14px;
 }
-.dashboard-app .company-card .top h4 {
+.dashboard-app .application-card .top h4 {
   font-family: var(--f-display);
   font-weight: 400;
   font-size: 20px;
@@ -751,24 +827,24 @@
   margin: 0 0 2px;
   line-height: 1.25;
 }
-.dashboard-app .company-card .top .role {
+.dashboard-app .application-card .top .role {
   font-size: 13px;
   color: var(--ink-mute);
   font-family: var(--f-mono);
 }
-.dashboard-app .company-card .mid {
+.dashboard-app .application-card .mid {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
-.dashboard-app .company-card .mid .emails {
+.dashboard-app .application-card .mid .emails {
   font-size: 12px;
   color: var(--ink-mute);
   font-family: var(--f-mono);
 }
-.dashboard-app .company-card .last {
+.dashboard-app .application-card .last {
   font-size: 13px;
   color: var(--ink-soft);
   border-top: 1px dashed var(--line);
@@ -776,10 +852,53 @@
   display: flex;
   justify-content: space-between;
 }
-.dashboard-app .company-card .last .w {
+.dashboard-app .application-card .last .w {
   font-family: var(--f-mono);
   font-size: 11px;
   color: var(--ink-mute);
+}
+
+/* Load more — same look as the Inbox's .thread-more, under its own class
+   because ApplicationList isn't the Inbox. */
+.dashboard-app .load-more {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 4px;
+}
+.dashboard-app .load-more button {
+  font-family: var(--f-mono);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.dashboard-app .load-more button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink-mute);
+}
+.dashboard-app .load-more button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.dashboard-app .load-more-error {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--ink-mute);
+}
+
+.dashboard-app .visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ============ SCROLLBARS ============ */
@@ -835,5 +954,8 @@
   }
   .dashboard-app .page-title h1 {
     font-size: 24px;
+  }
+  .dashboard-app .applications-table .col-opt {
+    display: none;
   }
 }
