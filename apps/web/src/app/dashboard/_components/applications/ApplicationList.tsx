@@ -1,10 +1,19 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import { loadApplicationsPage } from '../../_actions/applications'
+import {
+  loadApplicationsPage,
+  setApplicationStatus,
+} from '../../_actions/applications'
+import {
+  applyOptimisticStatus,
+  replaceRow,
+  restoreRow,
+} from '../../_lib/applications-rows'
 import type {
   ApplicationRow,
   ApplicationsResponse,
+  ApplicationStatus,
 } from '../../_lib/applications-schema'
 import {
   VIEW_MODE_STORAGE_KEY,
@@ -31,6 +40,13 @@ export function ApplicationList({
   )
   const [failed, setFailed] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  // Separate from the "Load more" transition above so an in-flight status
+  // edit never disables or re-labels the "Load more" button (and vice
+  // versa) — they share nothing but `rows`.
+  const [pendingId, setPendingId] = useState<string | null>(null)
+  const [errorId, setErrorId] = useState<string | null>(null)
+  const [, startStatusTransition] = useTransition()
 
   // Table is the server-rendered default (page.tsx has no localStorage
   // access), so reading the stored preference happens post-mount to avoid a
@@ -68,6 +84,32 @@ export function ApplicationList({
     })
   }
 
+  // StatusSelect (table Actions column + card .actions row) calls this.
+  // Optimistic, with rollback — and deliberately never re-sorts `rows`:
+  // doing so would move the edited row out from under the pointer, and its
+  // freshly-bumped lastActivityAt could exceed every cursor "Load more" has
+  // already handed out, so a row that round-tripped to the top couldn't be
+  // re-served if it had instead been removed and reinserted there.
+  function changeStatus(id: string, status: ApplicationStatus) {
+    const snapshot = rows.find((row) => row.id === id)
+    if (!snapshot) return
+
+    setErrorId(null)
+    setRows((current) => applyOptimisticStatus(current, id, status))
+    setPendingId(id)
+
+    startStatusTransition(async () => {
+      const updated = await setApplicationStatus(id, status)
+      setPendingId(null)
+      if (updated) {
+        setRows((current) => replaceRow(current, updated))
+      } else {
+        setRows((current) => restoreRow(current, snapshot))
+        setErrorId(id)
+      }
+    })
+  }
+
   return (
     <div>
       <div className="view-actions">
@@ -76,11 +118,22 @@ export function ApplicationList({
       </div>
 
       {viewMode === 'table' ? (
-        <ApplicationsTable applications={rows} />
+        <ApplicationsTable
+          applications={rows}
+          pendingId={pendingId}
+          errorId={errorId}
+          onChangeStatus={changeStatus}
+        />
       ) : (
         <div className="applications-grid">
           {rows.map((application) => (
-            <ApplicationCard key={application.id} application={application} />
+            <ApplicationCard
+              key={application.id}
+              application={application}
+              pending={pendingId === application.id}
+              error={errorId === application.id}
+              onChangeStatus={changeStatus}
+            />
           ))}
         </div>
       )}

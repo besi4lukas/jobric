@@ -6,8 +6,8 @@
 > changelog is kept at the bottom.
 
 Last updated: 2026-09-14 · reflects branch `jobric_013` @ `c476f4e`, plus the
-sign-out feature, AI Inbox PRs A–C (2026-09-13), and Applications PR B — the
-web read path (this change; §6, §7)
+sign-out feature, AI Inbox PRs A–C (2026-09-13), and Applications PRs B and
+C — the web read path and status edit (this change; §6, §7)
 
 Sections marked **⚠ Not yet wired** describe intended design that is present in
 the schema or code but not connected end-to-end. See [techdebt.md](techdebt.md)
@@ -470,22 +470,60 @@ hydrate-mismatch. `_lib/applications-schema.ts` defaults `statusSource`
 (`'gmail'`), `interviewAt` (`null`), and `nextCursor` the same way
 `inbox-schema.ts` defaults `summaryState`, so a web deploy racing ahead of
 the Worker degrades instead of throwing. `statusSource: 'user'` renders a
-"set by you" note next to the pill, but nothing yet lets the user set it —
-status editing is Applications PR C, stacked on this branch.
+"set by you" note next to the pill.
+
+**Status edit (PR C).** A new `StatusSelect` — a native `<select>`, not a
+custom dropdown, since apps/web has no DOM test environment to cover a
+hand-rolled listbox's keyboard handling — sits in the table's Actions
+column and in a `.actions` row on each grid card. Choosing a status calls
+`ApplicationList`'s `changeStatus(id, status)`, which optimistically writes
+`{ status, statusSource: 'user' }` into `rows` (pure helper
+`applyOptimisticStatus` in the new `_lib/applications-rows.ts`), then runs
+the Server Action `setApplicationStatus` (`_actions/applications.ts`) inside
+its own `useTransition` — deliberately separate from "Load more"'s, so an
+in-flight status edit never disables or relabels that button. The action
+re-validates both `id` and `status` (`parseStatusInput`,
+`ApplicationStatusSchema.safeParse`) before calling
+`updateApplicationStatus` (`_lib/fetch-applications.ts`), which does
+`PATCH /api/applications/:id/status` (PR A) with a Clerk bearer token, same
+posture as every other Worker call here: null on any non-2xx, network
+failure, or unparsable response, never a thrown error. A returned row
+replaces the optimistic one by id (`replaceRow`) — picking up the Worker's
+own `lastActivityAt` — and a `null` result rolls back to the pre-edit
+snapshot (`restoreRow`) plus an inline "Couldn't save" note for that row.
+**`rows` is never re-sorted after an edit** — a re-sort would move the row
+out from under the pointer mid-interaction, and the edited row's freshly
+bumped `lastActivityAt` could exceed every cursor "Load more" has already
+handed out, so a row that round-tripped to the top couldn't be re-served if
+it had instead been removed and reinserted there. Semantically, a manual
+edit **pins** the status: the Worker stops overwriting it on subsequent
+ingestion until the user edits again (PR A), though mail still ingests and
+still bumps `lastActivityAt` and `emailCount` underneath the pinned status.
+There's no "resume auto-tracking" control yet (techdebt). The edit only
+updates the Applications tab's own `rows` state — Overview's counts and
+Recent Activity are not revalidated (no `revalidatePath`), so they reflect
+the edit only on the next full navigation to the dashboard.
 
 ```
   BUILT & WIRED                          BUILT, NOT WIRED
   ─────────────                          ────────────────
-  Gmail OAuth ✓                          Applications status edit (PR C —
-  Cron poll ✓                              statusSource stays 'gmail' until
-  Agent pipeline ✓                         then)
-  D1 writes ✓ (incl. threads/messages)   /applications DO endpoint (no caller —
-  Thread summaries ✓ (cron, cached)        superseded by /api/overview and
-  Overview UI ✓ (real D1 reads)            /api/inbox; left in place)
+  Gmail OAuth ✓                          /applications DO endpoint (no caller —
+  Cron poll ✓                              superseded by /api/overview and
+  Agent pipeline ✓                         /api/inbox; left in place)
+  D1 writes ✓ (incl. threads/messages)
+  Thread summaries ✓ (cron, cached)
+  Overview UI ✓ (real D1 reads)
   AI Inbox UI ✓ (real D1 reads, paged)
   Applications UI ✓ (real D1 reads,
-    paged, table/grid toggle)
+    paged, table/grid toggle,
+    status edit — pins the status)
 ```
+
+Applications status edit depends at runtime on PR A's
+`PATCH /api/applications/:id/status`, which is landing in parallel on
+`feat/applications-api` and isn't deployed yet — the web code above is
+correct against the documented contract but untestable end-to-end until
+that route ships.
 
 Two fixes landed alongside the new route because Overview surfaced them
 immediately: `OrchestratorAgent` only wrote an `events` row when the tracker
@@ -557,3 +595,4 @@ Three issues are architectural rather than merely buggy:
 | 2026-09-13 | AI Inbox summaries (PR B of three; §2 "The thread summary", §5). New `apps/agents/src/lib/thread-summary.ts` writes `threads.summary` / `summary_updated_at` from the cron tick, gated on `newCount > 0` per account alongside the Overview summary. Staleness is implicit (`summary_updated_at < last_message_at`, stamped with the selected `last_message_at` rather than `now`); at most 10 threads per tick, newest first; newest 15 messages per thread in chronological order; failures leave the row untouched. No migration. Reuses `sanitizeSummaryText` from `overview-summary.ts`. 13 tests mock only the `ai` boundary and drive the module through `recordMessage()` on the real migrations. Read path and UI remain PR C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 2026-09-13 | AI Inbox read path (PR C of three; §6 "The AI Inbox read path"). New `GET /api/inbox?limit=&cursor=` (`apps/agents/src/routes/inbox.ts`): plain D1 reads, keyset cursor on `(last_message_at, id)` base64url-encoded, `limit + 1` probe for `nextCursor`, clamp 1–50, 400 on bad input. Web: `_lib/inbox-schema.ts` + `_lib/fetch-inbox.ts` (server-only), first page fetched in `page.tsx` alongside Overview, later pages via Server Action `_actions/inbox.ts`; `ThreadList` is now a client component with "Load more"; `InboxView` gains Overview's three empty states; new `_lib/status.ts` shared with Recent Activity; `threadTime()` in `_lib/format.ts`. `_data/inbox.ts` and the mock `Thread` type deleted. First tests in `apps/web` (vitest, pure TS: schema defaults, status mapping, `threadTime`). Agents: 14 route tests incl. a new-mail-between-pages case. No migration; nothing to run before deploy. Techdebt #1 closed for Inbox (Applications remains).                                                                                                                                                                                                                                                                                                                                       |
 | 2026-09-14 | Applications web read path (PR B of three; §6 "Applications — web read path"). Web-only: `_lib/applications-schema.ts` + `_lib/fetch-applications.ts` (server-only) against `GET /api/applications` (PR A, `feat/applications-api`, not yet deployed), first page fetched in `page.tsx` alongside Overview/Inbox, later pages via Server Action `_actions/applications.ts`. `_components/companies/{CompaniesView,CompanyCard}.tsx` renamed to `_components/applications/{ApplicationsView,ApplicationCard}.tsx` (`git mv`); new `ApplicationList` (client, keyset "Load more" like `ThreadList`), `ApplicationsTable`, and `ViewToggle` — table is the default layout, grid the alternative, preference persisted in `localStorage` (`_lib/view-mode.ts`) and read post-mount to avoid a hydration mismatch. `_data/companies.ts` and the mock `Company` type deleted. `emailCountLabel()` added to `_lib/format.ts`. First tests for the new schema, `parseViewMode`, and `emailCountLabel`. No migration; nothing to run before deploy. Status editing (`statusSource: 'user'`) is Applications PR C, stacked on this branch. Techdebt #1 closed.                                                                                                                                                                   |
+| 2026-09-14 | Applications status edit (PR C of three; §6 "Applications — web read path", "Status edit"). New `StatusSelect.tsx` (native `<select>`) in the table's Actions column and a card `.actions` row; `ApplicationList.changeStatus` does an optimistic update (pure helpers `applyOptimisticStatus`/`replaceRow`/`restoreRow` in new `_lib/applications-rows.ts`) through a `useTransition` kept separate from "Load more"'s, calling new Server Action `setApplicationStatus` (`_actions/applications.ts`, re-validates `id`/`status` via new `parseStatusInput`) → new `updateApplicationStatus` (`_lib/fetch-applications.ts`) → `PATCH /api/applications/:id/status` (PR A, not yet deployed). Failure rolls the row back and shows an inline "Couldn't save"; `rows` is never re-sorted after an edit (see §6 for why). New `.status-select`/`.status-error`/`.application-card .actions` CSS. 8 new pure-TS tests for the row helpers, no DOM rendering. No migration; nothing to run before deploy. Depends at runtime on PR A's PATCH route landing; stacked on PR B (`feat/applications-web`).                                                                                                                                                                                                                     |

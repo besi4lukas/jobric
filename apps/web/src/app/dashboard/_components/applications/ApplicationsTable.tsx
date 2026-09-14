@@ -1,15 +1,26 @@
-import type { ApplicationRow } from '../../_lib/applications-schema'
+import type {
+  ApplicationRow,
+  ApplicationStatus,
+} from '../../_lib/applications-schema'
 import { threadTime } from '../../_lib/format'
 import { PILL_LABELS, pillStatusFor } from '../../_lib/status'
 import { Logo } from '../Logo'
 import { StatusPill } from '../StatusPill'
+import { StatusSelect } from './StatusSelect'
 
-// Table default for the Applications tab (ViewToggle). PR C appends an
-// Actions column for status editing — no empty column reserved for it here.
+// Table default for the Applications tab (ViewToggle). Actions column
+// (status edit) is unconditional — it's never hidden at the ≤860px
+// breakpoint, unlike Req # / Emails (see dashboard.css, .col-opt).
 export function ApplicationsTable({
   applications,
+  pendingId,
+  errorId,
+  onChangeStatus,
 }: {
   applications: ApplicationRow[]
+  pendingId: string | null
+  errorId: string | null
+  onChangeStatus: (id: string, status: ApplicationStatus) => void
 }) {
   return (
     <div className="table-scroll">
@@ -29,6 +40,7 @@ export function ApplicationsTable({
             </th>
             <th scope="col">Status</th>
             <th scope="col">Last activity</th>
+            <th scope="col">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -36,6 +48,9 @@ export function ApplicationsTable({
             <ApplicationTableRow
               key={application.id}
               application={application}
+              pending={pendingId === application.id}
+              error={errorId === application.id}
+              onChangeStatus={onChangeStatus}
             />
           ))}
         </tbody>
@@ -44,7 +59,17 @@ export function ApplicationsTable({
   )
 }
 
-function ApplicationTableRow({ application }: { application: ApplicationRow }) {
+function ApplicationTableRow({
+  application,
+  pending,
+  error,
+  onChangeStatus,
+}: {
+  application: ApplicationRow
+  pending: boolean
+  error: boolean
+  onChangeStatus: (id: string, status: ApplicationStatus) => void
+}) {
   const full = new Date(application.lastActivityAt).toLocaleString()
 
   return (
@@ -72,6 +97,16 @@ function ApplicationTableRow({ application }: { application: ApplicationRow }) {
         <time dateTime={application.lastActivityAt} title={full}>
           {threadTime(application.lastActivityAt)}
         </time>
+      </td>
+      <td>
+        <StatusSelect
+          status={application.status}
+          company={application.company}
+          role={application.role}
+          pending={pending}
+          onChange={(status) => onChangeStatus(application.id, status)}
+        />
+        {error && <span className="status-error">Couldn&rsquo;t save</span>}
       </td>
     </tr>
   )
